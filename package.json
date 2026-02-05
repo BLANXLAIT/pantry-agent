@@ -52,7 +52,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "dotenv": "^16.4.5",
-    "open": "^10.1.0"
+    "open": "^10.1.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

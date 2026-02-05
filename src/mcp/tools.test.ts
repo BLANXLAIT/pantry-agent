@@ -109,12 +109,14 @@ describe('MCP Tools', () => {
         expect(result.content[0].type).toBe('text');
 
         const parsed = JSON.parse((result.content[0] as any).text);
-        expect(parsed).toHaveLength(2);
-        expect(parsed[0].productId).toBe('001');
-        expect(parsed[0].price).toBe(3.99);
-        expect(parsed[0].inStock).toBe(true);
-        expect(parsed[0].aisle).toBe('Dairy');
-        expect(parsed[1].inStock).toBe(false);
+        expect(parsed.count).toBe(2);
+        expect(parsed.has_more).toBe(false);
+        expect(parsed.products).toHaveLength(2);
+        expect(parsed.products[0].productId).toBe('001');
+        expect(parsed.products[0].price).toBe(3.99);
+        expect(parsed.products[0].inStock).toBe(true);
+        expect(parsed.products[0].aisle).toBe('Dairy');
+        expect(parsed.products[1].inStock).toBe(false);
       });
 
       it('should return message when no products found', async () => {
@@ -243,10 +245,12 @@ describe('MCP Tools', () => {
         expect(mockKroger.findStores).toHaveBeenCalledWith({ zipCode: '45202', limit: 5 });
 
         const parsed = JSON.parse((result.content[0] as any).text);
-        expect(parsed).toHaveLength(2);
-        expect(parsed[0].locationId).toBe('01400943');
-        expect(parsed[0].address).toBe('123 Main St, Cincinnati, OH 45202');
-        expect(parsed[0].phone).toBe('513-555-1234');
+        expect(parsed.count).toBe(2);
+        expect(parsed.has_more).toBe(false);
+        expect(parsed.stores).toHaveLength(2);
+        expect(parsed.stores[0].locationId).toBe('01400943');
+        expect(parsed.stores[0].address).toBe('123 Main St, Cincinnati, OH 45202');
+        expect(parsed.stores[0].phone).toBe('513-555-1234');
       });
 
       it('should return message when no stores found', async () => {

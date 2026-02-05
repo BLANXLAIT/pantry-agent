@@ -127,10 +127,11 @@ describe('Integration Tests', () => {
       // Verify result format
       expect(result.content).toHaveLength(1);
       const parsed = JSON.parse((result.content[0] as any).text);
-      expect(parsed).toHaveLength(1);
-      expect(parsed[0].productId).toBe('0001111041700');
-      expect(parsed[0].price).toBe(3.99);
-      expect(parsed[0].inStock).toBe(true);
+      expect(parsed.count).toBe(1);
+      expect(parsed.products).toHaveLength(1);
+      expect(parsed.products[0].productId).toBe('0001111041700');
+      expect(parsed.products[0].price).toBe(3.99);
+      expect(parsed.products[0].inStock).toBe(true);
     });
 
     it('should cache app token for subsequent requests', async () => {
@@ -254,9 +255,10 @@ describe('Integration Tests', () => {
 
       // Verify result format
       const parsed = JSON.parse((result.content[0] as any).text);
-      expect(parsed).toHaveLength(1);
-      expect(parsed[0].locationId).toBe('01400943');
-      expect(parsed[0].address).toBe('123 Main St, Cincinnati, OH 45202');
+      expect(parsed.count).toBe(1);
+      expect(parsed.stores).toHaveLength(1);
+      expect(parsed.stores[0].locationId).toBe('01400943');
+      expect(parsed.stores[0].address).toBe('123 Main St, Cincinnati, OH 45202');
     });
   });
 

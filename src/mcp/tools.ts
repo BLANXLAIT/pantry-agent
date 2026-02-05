@@ -3,6 +3,7 @@
  * Tool definitions and handlers for the MCP server
  */
 
+import { z } from 'zod';
 import type {
   ListToolsRequest,
   CallToolRequest,
@@ -11,7 +12,50 @@ import type {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { KrogerService } from '../services/kroger.service.js';
 
-// Tool definitions
+// Zod schemas for input validation
+const SearchProductsInput = z
+  .object({
+    term: z.string().min(1, 'Search term is required'),
+    locationId: z.string().min(1, 'Location ID is required'),
+    limit: z.number().int().min(1).max(50).default(10),
+  })
+  .strict();
+
+const GetProductInput = z
+  .object({
+    productId: z.string().min(1, 'Product ID is required'),
+    locationId: z.string().min(1, 'Location ID is required'),
+  })
+  .strict();
+
+const FindStoresInput = z
+  .object({
+    zipCode: z.string().regex(/^\d{5}$/, 'ZIP code must be 5 digits'),
+    limit: z.number().int().min(1).max(20).default(5),
+  })
+  .strict();
+
+const GetStoreInput = z
+  .object({
+    locationId: z.string().min(1, 'Location ID is required'),
+  })
+  .strict();
+
+const CartItemInput = z.object({
+  upc: z.string().regex(/^\d{13}$/, 'UPC must be 13 digits'),
+  quantity: z.number().int().min(1, 'Quantity must be at least 1'),
+  modality: z.enum(['PICKUP', 'DELIVERY']).optional(),
+});
+
+const AddToCartInput = z
+  .object({
+    items: z.array(CartItemInput).min(1, 'At least one item is required'),
+  })
+  .strict();
+
+const GetProfileInput = z.object({}).strict();
+
+// Tool definitions with annotations
 const TOOLS: Tool[] = [
   {
     name: 'search_products',
@@ -24,6 +68,12 @@ const TOOLS: Tool[] = [
         limit: { type: 'number', description: 'Maximum results (default: 10, max: 50)' },
       },
       required: ['term', 'locationId'],
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
     },
   },
   {
@@ -38,6 +88,12 @@ const TOOLS: Tool[] = [
       },
       required: ['productId', 'locationId'],
     },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
   },
   {
     name: 'find_stores',
@@ -50,6 +106,12 @@ const TOOLS: Tool[] = [
       },
       required: ['zipCode'],
     },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
   },
   {
     name: 'get_store',
@@ -60,6 +122,12 @@ const TOOLS: Tool[] = [
         locationId: { type: 'string', description: 'Store location ID' },
       },
       required: ['locationId'],
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
     },
   },
   {
@@ -88,6 +156,12 @@ const TOOLS: Tool[] = [
       },
       required: ['items'],
     },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
   },
   {
     name: 'get_profile',
@@ -95,6 +169,12 @@ const TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {},
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
     },
   },
 ];
@@ -112,11 +192,11 @@ export function callToolHandler(kroger: KrogerService) {
     try {
       switch (name) {
         case 'search_products': {
-          const {
-            term,
-            locationId,
-            limit = 10,
-          } = args as { term: string; locationId: string; limit?: number };
+          const parsed = SearchProductsInput.safeParse(args);
+          if (!parsed.success) {
+            return errorResult(`Invalid input: ${parsed.error.issues[0].message}`);
+          }
+          const { term, locationId, limit } = parsed.data;
           const products = await kroger.searchProducts({ term, locationId, limit });
 
           if (products.length === 0) {
@@ -133,11 +213,21 @@ export function callToolHandler(kroger: KrogerService) {
             aisle: p.aisleLocations?.[0]?.description,
           }));
 
-          return textResult(JSON.stringify(formatted, null, 2));
+          const result = {
+            count: formatted.length,
+            has_more: products.length >= limit,
+            products: formatted,
+          };
+
+          return textResult(JSON.stringify(result, null, 2));
         }
 
         case 'get_product': {
-          const { productId, locationId } = args as { productId: string; locationId: string };
+          const parsed = GetProductInput.safeParse(args);
+          if (!parsed.success) {
+            return errorResult(`Invalid input: ${parsed.error.issues[0].message}`);
+          }
+          const { productId, locationId } = parsed.data;
           const product = await kroger.getProduct(productId, locationId);
 
           const formatted = {
@@ -157,7 +247,11 @@ export function callToolHandler(kroger: KrogerService) {
         }
 
         case 'find_stores': {
-          const { zipCode, limit = 5 } = args as { zipCode: string; limit?: number };
+          const parsed = FindStoresInput.safeParse(args);
+          if (!parsed.success) {
+            return errorResult(`Invalid input: ${parsed.error.issues[0].message}`);
+          }
+          const { zipCode, limit } = parsed.data;
           const stores = await kroger.findStores({ zipCode, limit });
 
           if (stores.length === 0) {
@@ -172,11 +266,21 @@ export function callToolHandler(kroger: KrogerService) {
             phone: s.phone,
           }));
 
-          return textResult(JSON.stringify(formatted, null, 2));
+          const result = {
+            count: formatted.length,
+            has_more: stores.length >= limit,
+            stores: formatted,
+          };
+
+          return textResult(JSON.stringify(result, null, 2));
         }
 
         case 'get_store': {
-          const { locationId } = args as { locationId: string };
+          const parsed = GetStoreInput.safeParse(args);
+          if (!parsed.success) {
+            return errorResult(`Invalid input: ${parsed.error.issues[0].message}`);
+          }
+          const { locationId } = parsed.data;
           const store = await kroger.getStore(locationId);
 
           const formatted = {
@@ -193,9 +297,11 @@ export function callToolHandler(kroger: KrogerService) {
         }
 
         case 'add_to_cart': {
-          const { items } = args as {
-            items: Array<{ upc: string; quantity: number; modality?: 'PICKUP' | 'DELIVERY' }>;
-          };
+          const parsed = AddToCartInput.safeParse(args);
+          if (!parsed.success) {
+            return errorResult(`Invalid input: ${parsed.error.issues[0].message}`);
+          }
+          const { items } = parsed.data;
           await kroger.addToCart({ items });
 
           const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
@@ -203,6 +309,10 @@ export function callToolHandler(kroger: KrogerService) {
         }
 
         case 'get_profile': {
+          const parsed = GetProfileInput.safeParse(args);
+          if (!parsed.success) {
+            return errorResult(`Invalid input: ${parsed.error.issues[0].message}`);
+          }
           const profile = await kroger.getProfile();
           return textResult(JSON.stringify(profile, null, 2));
         }
@@ -215,7 +325,7 @@ export function callToolHandler(kroger: KrogerService) {
       if (message.startsWith('AUTH_REQUIRED:')) {
         // Auto-auth flow was started - return helpful message, not an error
         return textResult(
-          '🔐 Opening browser for Kroger login...\n\n' +
+          'Opening browser for Kroger login...\n\n' +
             'Please complete the login in your browser, then try your request again.'
         );
       }

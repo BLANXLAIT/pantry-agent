@@ -14,6 +14,29 @@ import { loadConfig } from './config.js';
 const REDIRECT_PORT = 3000;
 const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/callback`;
 
+/**
+ * Send an HTML response with consistent styling
+ */
+function sendHtmlResponse(
+  res: import('node:http').ServerResponse,
+  statusCode: number,
+  icon: string,
+  title: string,
+  message: string
+): void {
+  res.writeHead(statusCode, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(`
+    <html>
+      <head><meta charset="utf-8"></head>
+      <body style="font-family: system-ui; padding: 40px; text-align: center;">
+        <h1>${icon} ${title}</h1>
+        <p>${message}</p>
+        <p>You can close this window.</p>
+      </body>
+    </html>
+  `);
+}
+
 async function authCommand(options: { status?: boolean; logout?: boolean }): Promise<void> {
   const config = loadConfig();
   const kroger = new KrogerService(config);
@@ -59,34 +82,20 @@ async function authCommand(options: { status?: boolean; logout?: boolean }): Pro
       const error = url.searchParams.get('error');
 
       if (error) {
-        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`
-          <html>
-            <head><meta charset="utf-8"></head>
-            <body style="font-family: system-ui; padding: 40px; text-align: center;">
-              <h1>❌ Authentication Failed</h1>
-              <p>Error: ${error}</p>
-              <p>You can close this window.</p>
-            </body>
-          </html>
-        `);
+        sendHtmlResponse(res, 400, '❌', 'Authentication Failed', `Error: ${error}`);
         console.error(`\n✗ Authentication failed: ${error}`);
         server.close();
         process.exit(1);
       }
 
       if (!code) {
-        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`
-          <html>
-            <head><meta charset="utf-8"></head>
-            <body style="font-family: system-ui; padding: 40px; text-align: center;">
-              <h1>❌ Authentication Failed</h1>
-              <p>No authorization code received.</p>
-              <p>You can close this window.</p>
-            </body>
-          </html>
-        `);
+        sendHtmlResponse(
+          res,
+          400,
+          '❌',
+          'Authentication Failed',
+          'No authorization code received.'
+        );
         console.error('\n✗ Authentication failed: No authorization code received');
         server.close();
         process.exit(1);
@@ -95,37 +104,21 @@ async function authCommand(options: { status?: boolean; logout?: boolean }): Pro
       try {
         await auth.handleCallback(code, REDIRECT_URI, scope);
 
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`
-          <html>
-            <head><meta charset="utf-8"></head>
-            <body style="font-family: system-ui; padding: 40px; text-align: center;">
-              <h1>✅ Authentication Successful</h1>
-              <p>You are now logged in to Kroger.</p>
-              <p>You can close this window and return to your terminal.</p>
-            </body>
-          </html>
-        `);
-
+        sendHtmlResponse(
+          res,
+          200,
+          '✅',
+          'Authentication Successful',
+          'You are now logged in to Kroger.<br>You can return to your terminal.'
+        );
         console.log('\n✓ Authentication successful!');
         console.log('  You can now use cart features with Claude.');
         server.close();
         process.exit(0);
       } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`
-          <html>
-            <head><meta charset="utf-8"></head>
-            <body style="font-family: system-ui; padding: 40px; text-align: center;">
-              <h1>❌ Authentication Failed</h1>
-              <p>${err instanceof Error ? err.message : 'Unknown error'}</p>
-              <p>You can close this window.</p>
-            </body>
-          </html>
-        `);
-        console.error(
-          `\n✗ Authentication failed: ${err instanceof Error ? err.message : 'Unknown error'}`
-        );
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        sendHtmlResponse(res, 500, '❌', 'Authentication Failed', message);
+        console.error(`\n✗ Authentication failed: ${message}`);
         server.close();
         process.exit(1);
       }

@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "pantry-agent": {
-      "command": "node",
-      "args": ["/Users/ryan/dev/pantry-agent/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@blanxlait/pantry-agent"],
       "env": {
         "FIREBASE_FUNCTIONS_URL": "https://xcf2umzgsq-uc.a.run.app",
         "KROGER_ENVIRONMENT": "production"

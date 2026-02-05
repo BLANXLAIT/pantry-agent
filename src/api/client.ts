@@ -71,33 +71,31 @@ export class KrogerClient {
   }
 
   /**
-   * Get access token using client credentials grant
+   * Internal helper for token requests - handles both proxy and direct modes
    */
-  async getClientToken(scope?: string): Promise<TokenResponse> {
+  private async fetchToken(
+    proxyFunction: string,
+    proxyBody: Record<string, string>,
+    directParams: Record<string, string>,
+    errorPrefix: string
+  ): Promise<TokenResponse> {
     if (this.proxyUrl) {
-      // Call Firebase Functions proxy
-      const url = buildFunctionUrl(this.proxyUrl, 'authclienttoken');
+      const url = buildFunctionUrl(this.proxyUrl, proxyFunction);
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope: scope || 'product.compact' }),
+        body: JSON.stringify(proxyBody),
       });
 
       if (!response.ok) {
         const error = (await response.json()) as APIError;
         throw new Error(
-          `Token request failed: ${error.error_description || error.error || response.statusText}`
+          `${errorPrefix}: ${error.error_description || error.error || response.statusText}`
         );
       }
 
       return response.json() as Promise<TokenResponse>;
     }
-
-    // Direct Kroger API call
-    const body = new URLSearchParams({
-      grant_type: 'client_credentials',
-      ...(scope && { scope }),
-    });
 
     const response = await fetch(`${this.baseUrl}/connect/oauth2/token`, {
       method: 'POST',
@@ -105,114 +103,53 @@ export class KrogerClient {
         'Content-Type': 'application/x-www-form-urlencoded',
         Authorization: `Basic ${this.getBasicAuth()}`,
       },
-      body: body.toString(),
+      body: new URLSearchParams(directParams).toString(),
     });
 
     if (!response.ok) {
       const error = (await response.json()) as APIError;
       throw new Error(
-        `Token request failed: ${error.error_description || error.reason || response.statusText}`
+        `${errorPrefix}: ${error.error_description || error.reason || response.statusText}`
       );
     }
 
     return response.json() as Promise<TokenResponse>;
+  }
+
+  /**
+   * Get access token using client credentials grant
+   */
+  async getClientToken(scope?: string): Promise<TokenResponse> {
+    return this.fetchToken(
+      'authclienttoken',
+      { scope: scope || 'product.compact' },
+      { grant_type: 'client_credentials', ...(scope && { scope }) },
+      'Token request failed'
+    );
   }
 
   /**
    * Exchange authorization code for tokens
    */
   async exchangeCode(code: string, redirectUri: string): Promise<TokenResponse> {
-    if (this.proxyUrl) {
-      // Call Firebase Functions proxy
-      const url = buildFunctionUrl(this.proxyUrl, 'authtoken');
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, redirect_uri: redirectUri }),
-      });
-
-      if (!response.ok) {
-        const error = (await response.json()) as APIError;
-        throw new Error(
-          `Code exchange failed: ${error.error_description || error.error || response.statusText}`
-        );
-      }
-
-      return response.json() as Promise<TokenResponse>;
-    }
-
-    // Direct Kroger API call
-    const body = new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: redirectUri,
-    });
-
-    const response = await fetch(`${this.baseUrl}/connect/oauth2/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${this.getBasicAuth()}`,
-      },
-      body: body.toString(),
-    });
-
-    if (!response.ok) {
-      const error = (await response.json()) as APIError;
-      throw new Error(
-        `Code exchange failed: ${error.error_description || error.reason || response.statusText}`
-      );
-    }
-
-    return response.json() as Promise<TokenResponse>;
+    return this.fetchToken(
+      'authtoken',
+      { code, redirect_uri: redirectUri },
+      { grant_type: 'authorization_code', code, redirect_uri: redirectUri },
+      'Code exchange failed'
+    );
   }
 
   /**
    * Refresh access token using refresh token
    */
   async refreshToken(refreshToken: string): Promise<TokenResponse> {
-    if (this.proxyUrl) {
-      // Call Firebase Functions proxy
-      const url = buildFunctionUrl(this.proxyUrl, 'authrefresh');
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
-
-      if (!response.ok) {
-        const error = (await response.json()) as APIError;
-        throw new Error(
-          `Token refresh failed: ${error.error_description || error.error || response.statusText}`
-        );
-      }
-
-      return response.json() as Promise<TokenResponse>;
-    }
-
-    // Direct Kroger API call
-    const body = new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-    });
-
-    const response = await fetch(`${this.baseUrl}/connect/oauth2/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${this.getBasicAuth()}`,
-      },
-      body: body.toString(),
-    });
-
-    if (!response.ok) {
-      const error = (await response.json()) as APIError;
-      throw new Error(
-        `Token refresh failed: ${error.error_description || error.reason || response.statusText}`
-      );
-    }
-
-    return response.json() as Promise<TokenResponse>;
+    return this.fetchToken(
+      'authrefresh',
+      { refresh_token: refreshToken },
+      { grant_type: 'refresh_token', refresh_token: refreshToken },
+      'Token refresh failed'
+    );
   }
 
   /**

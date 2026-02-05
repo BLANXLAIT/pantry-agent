@@ -1,12 +1,19 @@
 {
-  "name": "pantry-agent",
+  "name": "@blanxlait/pantry-agent",
   "version": "0.1.0",
-  "description": "MCP server for Kroger grocery shopping",
+  "description": "MCP server for Kroger grocery shopping - search products, find stores, and manage your cart with AI",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "pantry-agent": "dist/cli.js"
   },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "!dist/**/*.test.*",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -16,24 +23,36 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build && npm run test"
   },
   "keywords": [
     "mcp",
+    "model-context-protocol",
     "kroger",
     "grocery",
-    "ai-agent"
+    "shopping",
+    "ai-agent",
+    "claude",
+    "llm"
   ],
   "author": "Ryan Niemes",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blanxlait/pantry-agent.git"
+  },
+  "homepage": "https://github.com/blanxlait/pantry-agent#readme",
+  "bugs": {
+    "url": "https://github.com/blanxlait/pantry-agent/issues"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "dotenv": "^16.4.5",
-    "open": "^10.1.0",
-    "zod": "^3.24.0"
+    "open": "^10.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

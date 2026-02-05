@@ -17,6 +17,7 @@ const krogerClientSecret = defineSecret('KROGER_CLIENT_SECRET');
 // Configuration
 // Use 'production' for Identity/Cart APIs (user accounts not available in certification)
 // Use 'certification' for Products/Locations APIs during development
+// Updated: 2026-02-05 to force redeploy with production env
 const KROGER_ENV = process.env.KROGER_ENV || 'certification';
 const KROGER_AUTH_URL = KROGER_ENV === 'production'
   ? 'https://api.kroger.com/v1/connect/oauth2'

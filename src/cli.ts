@@ -59,9 +59,10 @@ async function authCommand(options: { status?: boolean; logout?: boolean }): Pro
       const error = url.searchParams.get('error');
 
       if (error) {
-        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(`
           <html>
+            <head><meta charset="utf-8"></head>
             <body style="font-family: system-ui; padding: 40px; text-align: center;">
               <h1>❌ Authentication Failed</h1>
               <p>Error: ${error}</p>
@@ -75,9 +76,10 @@ async function authCommand(options: { status?: boolean; logout?: boolean }): Pro
       }
 
       if (!code) {
-        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(`
           <html>
+            <head><meta charset="utf-8"></head>
             <body style="font-family: system-ui; padding: 40px; text-align: center;">
               <h1>❌ Authentication Failed</h1>
               <p>No authorization code received.</p>
@@ -93,9 +95,10 @@ async function authCommand(options: { status?: boolean; logout?: boolean }): Pro
       try {
         await auth.handleCallback(code, REDIRECT_URI, scope);
 
-        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(`
           <html>
+            <head><meta charset="utf-8"></head>
             <body style="font-family: system-ui; padding: 40px; text-align: center;">
               <h1>✅ Authentication Successful</h1>
               <p>You are now logged in to Kroger.</p>
@@ -109,9 +112,10 @@ async function authCommand(options: { status?: boolean; logout?: boolean }): Pro
         server.close();
         process.exit(0);
       } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'text/html' });
+        res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(`
           <html>
+            <head><meta charset="utf-8"></head>
             <body style="font-family: system-ui; padding: 40px; text-align: center;">
               <h1>❌ Authentication Failed</h1>
               <p>${err instanceof Error ? err.message : 'Unknown error'}</p>

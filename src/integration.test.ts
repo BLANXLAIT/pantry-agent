@@ -108,7 +108,7 @@ describe('Integration Tests', () => {
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
-            'Authorization': expect.stringMatching(/^Basic /),
+            Authorization: expect.stringMatching(/^Basic /),
           }),
         })
       );
@@ -119,7 +119,7 @@ describe('Integration Tests', () => {
         expect.stringContaining('/products?filter.term=milk'),
         expect.objectContaining({
           headers: expect.objectContaining({
-            'Authorization': 'Bearer app-token-123',
+            Authorization: 'Bearer app-token-123',
           }),
         })
       );

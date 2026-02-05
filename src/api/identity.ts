@@ -14,10 +14,7 @@ export class IdentityAPI {
    * Requires user authentication (authorization code grant)
    */
   async getProfile(accessToken: string): Promise<Profile> {
-    const response = await this.client.request<{ data: Profile }>(
-      '/identity/profile',
-      accessToken
-    );
+    const response = await this.client.request<{ data: Profile }>('/identity/profile', accessToken);
 
     return response.data;
   }

@@ -54,10 +54,7 @@ describe('ProductsAPI', () => {
     it('should search products with required parameters', async () => {
       mockClient.request.mockResolvedValueOnce(mockProductsResponse);
 
-      const result = await api.search(
-        { term: 'milk', locationId: '01400943' },
-        'access-token'
-      );
+      const result = await api.search({ term: 'milk', locationId: '01400943' }, 'access-token');
 
       expect(result).toEqual(mockProductsResponse);
       expect(mockClient.request).toHaveBeenCalledWith(
@@ -74,10 +71,7 @@ describe('ProductsAPI', () => {
     it('should use custom limit when provided', async () => {
       mockClient.request.mockResolvedValueOnce(mockProductsResponse);
 
-      await api.search(
-        { term: 'eggs', locationId: '01400943', limit: 25 },
-        'access-token'
-      );
+      await api.search({ term: 'eggs', locationId: '01400943', limit: 25 }, 'access-token');
 
       const url = mockClient.request.mock.calls[0][0] as string;
       expect(url).toContain('filter.limit=25');
@@ -86,10 +80,7 @@ describe('ProductsAPI', () => {
     it('should include start parameter for pagination', async () => {
       mockClient.request.mockResolvedValueOnce(mockProductsResponse);
 
-      await api.search(
-        { term: 'bread', locationId: '01400943', start: 20 },
-        'access-token'
-      );
+      await api.search({ term: 'bread', locationId: '01400943', start: 20 }, 'access-token');
 
       const url = mockClient.request.mock.calls[0][0] as string;
       expect(url).toContain('filter.start=20');
@@ -177,25 +168,25 @@ describe('ProductsAPI', () => {
     it('should throw error when product not found', async () => {
       mockClient.request.mockResolvedValueOnce({ data: [] });
 
-      await expect(
-        api.getById('nonexistent-product', '01400943', 'access-token')
-      ).rejects.toThrow('Product not found: nonexistent-product');
+      await expect(api.getById('nonexistent-product', '01400943', 'access-token')).rejects.toThrow(
+        'Product not found: nonexistent-product'
+      );
     });
 
     it('should throw error when data is undefined', async () => {
       mockClient.request.mockResolvedValueOnce({ data: undefined });
 
-      await expect(
-        api.getById('product-123', '01400943', 'access-token')
-      ).rejects.toThrow('Product not found: product-123');
+      await expect(api.getById('product-123', '01400943', 'access-token')).rejects.toThrow(
+        'Product not found: product-123'
+      );
     });
 
     it('should propagate client errors', async () => {
       mockClient.request.mockRejectedValueOnce(new Error('API request failed: Not Found'));
 
-      await expect(
-        api.getById('invalid-id', '01400943', 'access-token')
-      ).rejects.toThrow('API request failed: Not Found');
+      await expect(api.getById('invalid-id', '01400943', 'access-token')).rejects.toThrow(
+        'API request failed: Not Found'
+      );
     });
   });
 });

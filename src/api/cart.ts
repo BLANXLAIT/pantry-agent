@@ -13,22 +13,15 @@ export class CartAPI {
    * Requires scope: cart.basic:write
    * Requires user authentication (authorization code grant)
    */
-  async addItems(
-    items: CartItem[],
-    accessToken: string
-  ): Promise<void> {
+  async addItems(items: CartItem[], accessToken: string): Promise<void> {
     const body: CartAddRequest = { items };
 
-    await this.client.request<void>(
-      '/cart/add',
-      accessToken,
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      }
-    );
+    await this.client.request<void>('/cart/add', accessToken, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
   }
 }

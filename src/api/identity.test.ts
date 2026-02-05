@@ -37,9 +37,7 @@ describe('IdentityAPI', () => {
     it('should propagate authentication errors', async () => {
       mockClient.request.mockRejectedValueOnce(new Error('Token expired or invalid'));
 
-      await expect(api.getProfile('expired-token')).rejects.toThrow(
-        'Token expired or invalid'
-      );
+      await expect(api.getProfile('expired-token')).rejects.toThrow('Token expired or invalid');
     });
 
     it('should propagate scope errors', async () => {
@@ -51,9 +49,7 @@ describe('IdentityAPI', () => {
     });
 
     it('should handle API errors', async () => {
-      mockClient.request.mockRejectedValueOnce(
-        new Error('API request failed: Server error')
-      );
+      mockClient.request.mockRejectedValueOnce(new Error('API request failed: Server error'));
 
       await expect(api.getProfile('access-token')).rejects.toThrow(
         'API request failed: Server error'

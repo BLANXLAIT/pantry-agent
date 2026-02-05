@@ -28,7 +28,8 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'get_product',
-    description: 'Get detailed information about a specific product including price, stock, and nutrition',
+    description:
+      'Get detailed information about a specific product including price, stock, and nutrition',
     inputSchema: {
       type: 'object',
       properties: {
@@ -74,7 +75,11 @@ const TOOLS: Tool[] = [
             properties: {
               upc: { type: 'string', description: 'Product UPC (13 digits)' },
               quantity: { type: 'number', description: 'Quantity to add' },
-              modality: { type: 'string', enum: ['PICKUP', 'DELIVERY'], description: 'Fulfillment method' },
+              modality: {
+                type: 'string',
+                enum: ['PICKUP', 'DELIVERY'],
+                description: 'Fulfillment method',
+              },
             },
             required: ['upc', 'quantity'],
           },
@@ -107,7 +112,11 @@ export function callToolHandler(kroger: KrogerService) {
     try {
       switch (name) {
         case 'search_products': {
-          const { term, locationId, limit = 10 } = args as { term: string; locationId: string; limit?: number };
+          const {
+            term,
+            locationId,
+            limit = 10,
+          } = args as { term: string; locationId: string; limit?: number };
           const products = await kroger.searchProducts({ term, locationId, limit });
 
           if (products.length === 0) {
@@ -184,7 +193,9 @@ export function callToolHandler(kroger: KrogerService) {
         }
 
         case 'add_to_cart': {
-          const { items } = args as { items: Array<{ upc: string; quantity: number; modality?: 'PICKUP' | 'DELIVERY' }> };
+          const { items } = args as {
+            items: Array<{ upc: string; quantity: number; modality?: 'PICKUP' | 'DELIVERY' }>;
+          };
           await kroger.addToCart({ items });
 
           const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
@@ -202,7 +213,9 @@ export function callToolHandler(kroger: KrogerService) {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       if (message.includes('not authenticated')) {
-        return errorResult('Not authenticated. Please run `pantry-agent auth` in your terminal to log in to Kroger.');
+        return errorResult(
+          'Not authenticated. Please run `pantry-agent auth` in your terminal to log in to Kroger.'
+        );
       }
       return errorResult(`Error: ${message}`);
     }

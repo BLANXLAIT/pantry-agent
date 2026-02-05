@@ -19,9 +19,10 @@ const krogerClientSecret = defineSecret('KROGER_CLIENT_SECRET');
 // Use 'certification' for Products/Locations APIs during development
 // Updated: 2026-02-05 to force redeploy with production env
 const KROGER_ENV = process.env.KROGER_ENV || 'certification';
-const KROGER_AUTH_URL = KROGER_ENV === 'production'
-  ? 'https://api.kroger.com/v1/connect/oauth2'
-  : 'https://api-ce.kroger.com/v1/connect/oauth2';
+const KROGER_AUTH_URL =
+  KROGER_ENV === 'production'
+    ? 'https://api.kroger.com/v1/connect/oauth2'
+    : 'https://api-ce.kroger.com/v1/connect/oauth2';
 const SCOPES = 'cart.basic:write profile.compact product.compact';
 
 /**
@@ -35,38 +36,35 @@ function getBasicAuth(clientId: string, clientSecret: string): string {
  * Start OAuth flow - redirects to Kroger
  * GET /auth/start?redirect_uri=...
  */
-export const authStart = onRequest(
-  { secrets: [krogerClientId] },
-  (req, res) => {
-    // CORS headers
-    res.set('Access-Control-Allow-Origin', '*');
-    if (req.method === 'OPTIONS') {
-      res.set('Access-Control-Allow-Methods', 'GET');
-      res.set('Access-Control-Allow-Headers', 'Content-Type');
-      res.status(204).send('');
-      return;
-    }
-
-    const redirectUri = req.query.redirect_uri as string;
-    const state = req.query.state as string;
-
-    if (!redirectUri) {
-      res.status(400).json({ error: 'redirect_uri is required' });
-      return;
-    }
-
-    const params = new URLSearchParams({
-      client_id: krogerClientId.value().trim(),
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope: SCOPES,
-      ...(state && { state }),
-    });
-
-    const authUrl = `${KROGER_AUTH_URL}/authorize?${params.toString()}`;
-    res.redirect(authUrl);
+export const authStart = onRequest({ secrets: [krogerClientId] }, (req, res) => {
+  // CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'GET');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.status(204).send('');
+    return;
   }
-);
+
+  const redirectUri = req.query.redirect_uri as string;
+  const state = req.query.state as string;
+
+  if (!redirectUri) {
+    res.status(400).json({ error: 'redirect_uri is required' });
+    return;
+  }
+
+  const params = new URLSearchParams({
+    client_id: krogerClientId.value().trim(),
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: SCOPES,
+    ...(state && { state }),
+  });
+
+  const authUrl = `${KROGER_AUTH_URL}/authorize?${params.toString()}`;
+  res.redirect(authUrl);
+});
 
 /**
  * Exchange authorization code for tokens
@@ -110,7 +108,7 @@ export const authToken = onRequest(
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${getBasicAuth(krogerClientId.value().trim(), krogerClientSecret.value().trim())}`,
+          Authorization: `Basic ${getBasicAuth(krogerClientId.value().trim(), krogerClientSecret.value().trim())}`,
         },
         body: body.toString(),
       });
@@ -171,7 +169,7 @@ export const authRefresh = onRequest(
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${getBasicAuth(krogerClientId.value().trim(), krogerClientSecret.value().trim())}`,
+          Authorization: `Basic ${getBasicAuth(krogerClientId.value().trim(), krogerClientSecret.value().trim())}`,
         },
         body: body.toString(),
       });
@@ -230,7 +228,7 @@ export const authClientToken = onRequest(
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${getBasicAuth(clientId, clientSecret)}`,
+          Authorization: `Basic ${getBasicAuth(clientId, clientSecret)}`,
         },
         body: body.toString(),
       });

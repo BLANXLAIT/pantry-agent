@@ -123,7 +123,9 @@ async function authCommand(options: { status?: boolean; logout?: boolean }): Pro
             </body>
           </html>
         `);
-        console.error(`\n✗ Authentication failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        console.error(
+          `\n✗ Authentication failed: ${err instanceof Error ? err.message : 'Unknown error'}`
+        );
         server.close();
         process.exit(1);
       }
@@ -140,11 +142,14 @@ async function authCommand(options: { status?: boolean; logout?: boolean }): Pro
   });
 
   // Timeout after 5 minutes
-  setTimeout(() => {
-    console.error('\n✗ Authentication timed out');
-    server.close();
-    process.exit(1);
-  }, 5 * 60 * 1000);
+  setTimeout(
+    () => {
+      console.error('\n✗ Authentication timed out');
+      server.close();
+      process.exit(1);
+    },
+    5 * 60 * 1000
+  );
 }
 
 async function serveCommand(): Promise<void> {

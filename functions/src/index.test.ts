@@ -105,9 +105,7 @@ describe('Firebase Functions', () => {
       expect(res.redirect).toHaveBeenCalledWith(
         expect.stringContaining('redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback')
       );
-      expect(res.redirect).toHaveBeenCalledWith(
-        expect.stringContaining('response_type=code')
-      );
+      expect(res.redirect).toHaveBeenCalledWith(expect.stringContaining('response_type=code'));
     });
 
     it('should include state parameter when provided', async () => {
@@ -122,9 +120,7 @@ describe('Firebase Functions', () => {
 
       await (authStart as any)(req, res);
 
-      expect(res.redirect).toHaveBeenCalledWith(
-        expect.stringContaining('state=random-state-123')
-      );
+      expect(res.redirect).toHaveBeenCalledWith(expect.stringContaining('state=random-state-123'));
     });
   });
 
@@ -206,7 +202,7 @@ describe('Firebase Functions', () => {
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': expect.stringMatching(/^Basic /),
+            Authorization: expect.stringMatching(/^Basic /),
           }),
         })
       );

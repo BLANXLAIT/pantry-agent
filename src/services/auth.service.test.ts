@@ -221,11 +221,9 @@ describe('AuthService', () => {
 
       service.clearTokens();
 
-      expect(mockWriteFileSync).toHaveBeenCalledWith(
-        '/mock/home/.pantry-agent/tokens.json',
-        '',
-        { mode: 0o600 }
-      );
+      expect(mockWriteFileSync).toHaveBeenCalledWith('/mock/home/.pantry-agent/tokens.json', '', {
+        mode: 0o600,
+      });
     });
 
     it('should do nothing when tokens file does not exist', () => {
@@ -323,11 +321,9 @@ describe('AuthService', () => {
       const result = await service.getUserToken();
 
       expect(result).toBeNull();
-      expect(mockWriteFileSync).toHaveBeenCalledWith(
-        '/mock/home/.pantry-agent/tokens.json',
-        '',
-        { mode: 0o600 }
-      );
+      expect(mockWriteFileSync).toHaveBeenCalledWith('/mock/home/.pantry-agent/tokens.json', '', {
+        mode: 0o600,
+      });
     });
   });
 

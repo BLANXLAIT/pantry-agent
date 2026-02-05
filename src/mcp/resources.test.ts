@@ -98,7 +98,9 @@ describe('MCP Resources', () => {
           },
         };
 
-        await expect(handler(request)).rejects.toThrow('Unknown resource: kroger://unknown/resource');
+        await expect(handler(request)).rejects.toThrow(
+          'Unknown resource: kroger://unknown/resource'
+        );
       });
     });
   });

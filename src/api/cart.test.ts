@@ -31,17 +31,13 @@ describe('CartAPI', () => {
 
       await api.addItems(items, 'access-token');
 
-      expect(mockClient.request).toHaveBeenCalledWith(
-        '/cart/add',
-        'access-token',
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ items }),
-        }
-      );
+      expect(mockClient.request).toHaveBeenCalledWith('/cart/add', 'access-token', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ items }),
+      });
     });
 
     it('should add single item to cart', async () => {
@@ -111,9 +107,7 @@ describe('CartAPI', () => {
     });
 
     it('should handle API errors', async () => {
-      mockClient.request.mockRejectedValueOnce(
-        new Error('API request failed: Invalid UPC')
-      );
+      mockClient.request.mockRejectedValueOnce(new Error('API request failed: Invalid UPC'));
 
       const items: CartItem[] = [{ upc: 'invalid-upc', quantity: 1 }];
 

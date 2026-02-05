@@ -20,10 +20,7 @@ export class ProductsAPI {
    * Search for products
    * Requires scope: product.compact
    */
-  async search(
-    params: SearchProductsParams,
-    accessToken: string
-  ): Promise<ProductsResponse> {
+  async search(params: SearchProductsParams, accessToken: string): Promise<ProductsResponse> {
     const queryParams = new URLSearchParams({
       'filter.term': params.term,
       'filter.locationId': params.locationId,
@@ -42,11 +39,7 @@ export class ProductsAPI {
    * Get product by ID
    * Requires scope: product.compact
    */
-  async getById(
-    productId: string,
-    locationId: string,
-    accessToken: string
-  ): Promise<Product> {
+  async getById(productId: string, locationId: string, accessToken: string): Promise<Product> {
     const queryParams = new URLSearchParams({
       'filter.locationId': locationId,
     });

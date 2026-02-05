@@ -63,7 +63,7 @@ describe('KrogerClient', () => {
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': expect.stringMatching(/^Basic /),
+            Authorization: expect.stringMatching(/^Basic /),
           }),
         })
       );
@@ -72,7 +72,8 @@ describe('KrogerClient', () => {
     it('should include scope in request body when provided', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ access_token: 'token', token_type: 'bearer', expires_in: 1800 }),
+        json: () =>
+          Promise.resolve({ access_token: 'token', token_type: 'bearer', expires_in: 1800 }),
       });
 
       await client.getClientToken('product.compact');
@@ -102,7 +103,9 @@ describe('KrogerClient', () => {
         json: () => Promise.resolve({ reason: 'Bad credentials' }),
       });
 
-      await expect(client.getClientToken()).rejects.toThrow('Token request failed: Bad credentials');
+      await expect(client.getClientToken()).rejects.toThrow(
+        'Token request failed: Bad credentials'
+      );
     });
 
     it('should use statusText as fallback error message', async () => {
@@ -112,7 +115,9 @@ describe('KrogerClient', () => {
         json: () => Promise.resolve({}),
       });
 
-      await expect(client.getClientToken()).rejects.toThrow('Token request failed: Service Unavailable');
+      await expect(client.getClientToken()).rejects.toThrow(
+        'Token request failed: Service Unavailable'
+      );
     });
   });
 
@@ -148,9 +153,9 @@ describe('KrogerClient', () => {
         json: () => Promise.resolve({ error_description: 'Invalid authorization code' }),
       });
 
-      await expect(client.exchangeCode('invalid-code', 'http://localhost/callback')).rejects.toThrow(
-        'Code exchange failed: Invalid authorization code'
-      );
+      await expect(
+        client.exchangeCode('invalid-code', 'http://localhost/callback')
+      ).rejects.toThrow('Code exchange failed: Invalid authorization code');
     });
   });
 
@@ -239,8 +244,8 @@ describe('KrogerClient', () => {
         'https://api-ce.kroger.com/v1/products?filter.term=milk',
         expect.objectContaining({
           headers: expect.objectContaining({
-            'Accept': 'application/json',
-            'Authorization': 'Bearer access-token-123',
+            Accept: 'application/json',
+            Authorization: 'Bearer access-token-123',
           }),
         })
       );
@@ -278,9 +283,7 @@ describe('KrogerClient', () => {
         json: () => Promise.resolve({ error: 'Insufficient scope' }),
       });
 
-      await expect(client.request('/cart/add', 'token')).rejects.toThrow(
-        'Missing required scope'
-      );
+      await expect(client.request('/cart/add', 'token')).rejects.toThrow('Missing required scope');
     });
 
     it('should handle other API errors', async () => {
@@ -329,8 +332,8 @@ describe('KrogerClient', () => {
         expect.objectContaining({
           method: 'PUT',
           headers: expect.objectContaining({
-            'Accept': 'application/json',
-            'Authorization': 'Bearer token',
+            Accept: 'application/json',
+            Authorization: 'Bearer token',
             'Content-Type': 'application/json',
           }),
           body: '{"items":[]}',

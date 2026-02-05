@@ -6,6 +6,12 @@
 # Claude Desktop config (contains secrets)
 claude-desktop-config.json
 
+# Claude Code local settings (user-specific permissions)
+.claude/settings.local.json
+
+# MCP config (environment-specific URLs)
+.mcp.json
+
 # Firebase
 firebase-debug.log
 .firebase/

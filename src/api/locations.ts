@@ -21,10 +21,7 @@ export class LocationsAPI {
    * Find locations near a location
    * No special scope required
    */
-  async find(
-    params: FindLocationsParams,
-    accessToken: string
-  ): Promise<LocationsResponse> {
+  async find(params: FindLocationsParams, accessToken: string): Promise<LocationsResponse> {
     const queryParams = new URLSearchParams({
       'filter.limit': String(params.limit ?? 5),
     });
@@ -54,10 +51,7 @@ export class LocationsAPI {
    * Get location by ID
    * No special scope required
    */
-  async getById(
-    locationId: string,
-    accessToken: string
-  ): Promise<Location> {
+  async getById(locationId: string, accessToken: string): Promise<Location> {
     const response = await this.client.request<{ data: Location }>(
       `/locations/${locationId}`,
       accessToken

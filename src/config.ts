@@ -24,11 +24,15 @@ export function loadConfig(): KrogerClientConfig {
 
   // Fall back to direct credentials (for local development with .env)
   if (!clientId) {
-    throw new Error('Either FIREBASE_FUNCTIONS_URL or KROGER_CLIENT_ID environment variable is required');
+    throw new Error(
+      'Either FIREBASE_FUNCTIONS_URL or KROGER_CLIENT_ID environment variable is required'
+    );
   }
 
   if (!clientSecret) {
-    throw new Error('KROGER_CLIENT_SECRET environment variable is required when using direct credentials');
+    throw new Error(
+      'KROGER_CLIENT_SECRET environment variable is required when using direct credentials'
+    );
   }
 
   return {

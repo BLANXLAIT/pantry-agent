@@ -61,28 +61,30 @@ describe('KrogerService', () => {
       // Mock token response
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          access_token: 'app-token',
-          token_type: 'bearer',
-          expires_in: 1800,
-        }),
+        json: () =>
+          Promise.resolve({
+            access_token: 'app-token',
+            token_type: 'bearer',
+            expires_in: 1800,
+          }),
       });
 
       // Mock product search response
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({
-          data: [
-            {
-              productId: '0001111041700',
-              upc: '0001111041700',
-              description: 'Kroger 2% Milk',
-              brand: 'Kroger',
-            },
-          ],
-          meta: { pagination: { start: 0, limit: 10, total: 1 } },
-        }),
+        json: () =>
+          Promise.resolve({
+            data: [
+              {
+                productId: '0001111041700',
+                upc: '0001111041700',
+                description: 'Kroger 2% Milk',
+                brand: 'Kroger',
+              },
+            ],
+            meta: { pagination: { start: 0, limit: 10, total: 1 } },
+          }),
       });
 
       const result = await service.searchProducts({
@@ -104,19 +106,21 @@ describe('KrogerService', () => {
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            access_token: 'app-token',
-            token_type: 'bearer',
-            expires_in: 1800,
-          }),
+          json: () =>
+            Promise.resolve({
+              access_token: 'app-token',
+              token_type: 'bearer',
+              expires_in: 1800,
+            }),
         })
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({
-            data: [],
-            meta: { pagination: { start: 0, limit: 25, total: 0 } },
-          }),
+          json: () =>
+            Promise.resolve({
+              data: [],
+              meta: { pagination: { start: 0, limit: 25, total: 0 } },
+            }),
         });
 
       await service.searchProducts({
@@ -134,26 +138,28 @@ describe('KrogerService', () => {
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            access_token: 'app-token',
-            token_type: 'bearer',
-            expires_in: 1800,
-          }),
+          json: () =>
+            Promise.resolve({
+              access_token: 'app-token',
+              token_type: 'bearer',
+              expires_in: 1800,
+            }),
         })
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({
-            data: [
-              {
-                productId: '0001111041700',
-                upc: '0001111041700',
-                description: 'Kroger 2% Milk',
-                brand: 'Kroger',
-              },
-            ],
-            meta: { pagination: { start: 0, limit: 1, total: 1 } },
-          }),
+          json: () =>
+            Promise.resolve({
+              data: [
+                {
+                  productId: '0001111041700',
+                  upc: '0001111041700',
+                  description: 'Kroger 2% Milk',
+                  brand: 'Kroger',
+                },
+              ],
+              meta: { pagination: { start: 0, limit: 1, total: 1 } },
+            }),
         });
 
       const result = await service.getProduct('0001111041700', '01400943');
@@ -168,36 +174,38 @@ describe('KrogerService', () => {
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            access_token: 'app-token',
-            token_type: 'bearer',
-            expires_in: 1800,
-          }),
+          json: () =>
+            Promise.resolve({
+              access_token: 'app-token',
+              token_type: 'bearer',
+              expires_in: 1800,
+            }),
         })
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({
-            data: [
-              {
-                locationId: '01400943',
-                name: 'Kroger',
-                chain: 'KROGER',
-                address: {
-                  addressLine1: '123 Main St',
-                  city: 'Cincinnati',
-                  state: 'OH',
-                  zipCode: '45202',
+          json: () =>
+            Promise.resolve({
+              data: [
+                {
+                  locationId: '01400943',
+                  name: 'Kroger',
+                  chain: 'KROGER',
+                  address: {
+                    addressLine1: '123 Main St',
+                    city: 'Cincinnati',
+                    state: 'OH',
+                    zipCode: '45202',
+                  },
+                  geolocation: {
+                    latitude: 39.1031,
+                    longitude: -84.512,
+                    latLng: '39.1031,-84.512',
+                  },
                 },
-                geolocation: {
-                  latitude: 39.1031,
-                  longitude: -84.512,
-                  latLng: '39.1031,-84.512',
-                },
-              },
-            ],
-            meta: { pagination: { start: 0, limit: 5, total: 1 } },
-          }),
+              ],
+              meta: { pagination: { start: 0, limit: 5, total: 1 } },
+            }),
         });
 
       const result = await service.findStores({ zipCode: '45202' });
@@ -214,33 +222,35 @@ describe('KrogerService', () => {
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            access_token: 'app-token',
-            token_type: 'bearer',
-            expires_in: 1800,
-          }),
+          json: () =>
+            Promise.resolve({
+              access_token: 'app-token',
+              token_type: 'bearer',
+              expires_in: 1800,
+            }),
         })
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({
-            data: {
-              locationId: '01400943',
-              name: 'Kroger',
-              chain: 'KROGER',
-              address: {
-                addressLine1: '123 Main St',
-                city: 'Cincinnati',
-                state: 'OH',
-                zipCode: '45202',
+          json: () =>
+            Promise.resolve({
+              data: {
+                locationId: '01400943',
+                name: 'Kroger',
+                chain: 'KROGER',
+                address: {
+                  addressLine1: '123 Main St',
+                  city: 'Cincinnati',
+                  state: 'OH',
+                  zipCode: '45202',
+                },
+                geolocation: {
+                  latitude: 39.1031,
+                  longitude: -84.512,
+                  latLng: '39.1031,-84.512',
+                },
               },
-              geolocation: {
-                latitude: 39.1031,
-                longitude: -84.512,
-                latLng: '39.1031,-84.512',
-              },
-            },
-          }),
+            }),
         });
 
       const result = await service.getStore('01400943');
@@ -261,11 +271,13 @@ describe('KrogerService', () => {
 
     it('should return true when valid tokens exist', async () => {
       mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(JSON.stringify({
-        accessToken: 'user-token',
-        expiresAt: Date.now() + 1800000,
-        scope: 'cart.basic:write',
-      }));
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({
+          accessToken: 'user-token',
+          expiresAt: Date.now() + 1800000,
+          scope: 'cart.basic:write',
+        })
+      );
 
       const result = await service.isUserAuthenticated();
 
@@ -290,11 +302,13 @@ describe('KrogerService', () => {
     it('should add items to cart with user token', async () => {
       // Set up stored user token
       mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(JSON.stringify({
-        accessToken: 'user-token',
-        expiresAt: Date.now() + 1800000,
-        scope: 'cart.basic:write',
-      }));
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({
+          accessToken: 'user-token',
+          expiresAt: Date.now() + 1800000,
+          scope: 'cart.basic:write',
+        })
+      );
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -306,7 +320,7 @@ describe('KrogerService', () => {
       expect(mockFetch.mock.calls[0][0]).toContain('/cart/add');
       expect(mockFetch.mock.calls[0][1]?.method).toBe('PUT');
       expect(mockFetch.mock.calls[0][1]?.headers).toMatchObject({
-        'Authorization': 'Bearer user-token',
+        Authorization: 'Bearer user-token',
       });
     });
   });
@@ -322,18 +336,21 @@ describe('KrogerService', () => {
 
     it('should get profile with user token', async () => {
       mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(JSON.stringify({
-        accessToken: 'user-token',
-        expiresAt: Date.now() + 1800000,
-        scope: 'profile.compact',
-      }));
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({
+          accessToken: 'user-token',
+          expiresAt: Date.now() + 1800000,
+          scope: 'profile.compact',
+        })
+      );
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({
-          data: { id: 'user-123-abc' },
-        }),
+        json: () =>
+          Promise.resolve({
+            data: { id: 'user-123-abc' },
+          }),
       });
 
       const result = await service.getProfile();
@@ -341,7 +358,7 @@ describe('KrogerService', () => {
       expect(result.id).toBe('user-123-abc');
       expect(mockFetch.mock.calls[0][0]).toContain('/identity/profile');
       expect(mockFetch.mock.calls[0][1]?.headers).toMatchObject({
-        'Authorization': 'Bearer user-token',
+        Authorization: 'Bearer user-token',
       });
     });
   });
@@ -352,28 +369,31 @@ describe('KrogerService', () => {
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            access_token: 'app-token',
-            token_type: 'bearer',
-            expires_in: 1800,
-          }),
+          json: () =>
+            Promise.resolve({
+              access_token: 'app-token',
+              token_type: 'bearer',
+              expires_in: 1800,
+            }),
         })
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({
-            data: [],
-            meta: { pagination: { start: 0, limit: 10, total: 0 } },
-          }),
+          json: () =>
+            Promise.resolve({
+              data: [],
+              meta: { pagination: { start: 0, limit: 10, total: 0 } },
+            }),
         })
         // Second request - only search (token should be cached)
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({
-            data: [],
-            meta: { pagination: { start: 0, limit: 10, total: 0 } },
-          }),
+          json: () =>
+            Promise.resolve({
+              data: [],
+              meta: { pagination: { start: 0, limit: 10, total: 0 } },
+            }),
         });
 
       // First search

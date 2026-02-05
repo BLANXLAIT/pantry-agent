@@ -37,7 +37,7 @@ describe('LocationsAPI', () => {
           },
           geolocation: {
             latitude: 39.1031,
-            longitude: -84.5120,
+            longitude: -84.512,
             latLng: '39.1031,-84.5120',
           },
           phone: '513-555-1234',
@@ -55,8 +55,8 @@ describe('LocationsAPI', () => {
             zipCode: '45203',
           },
           geolocation: {
-            latitude: 39.1100,
-            longitude: -84.5200,
+            latitude: 39.11,
+            longitude: -84.52,
             latLng: '39.1100,-84.5200',
           },
         },
@@ -85,7 +85,7 @@ describe('LocationsAPI', () => {
     it('should find locations by coordinates', async () => {
       mockClient.request.mockResolvedValueOnce(mockLocationsResponse);
 
-      await api.find({ lat: 39.1031, lon: -84.5120 }, 'access-token');
+      await api.find({ lat: 39.1031, lon: -84.512 }, 'access-token');
 
       const url = mockClient.request.mock.calls[0][0] as string;
       expect(url).toContain('filter.lat.near=39.1031');
@@ -96,7 +96,7 @@ describe('LocationsAPI', () => {
     it('should prefer ZIP code over coordinates when both provided', async () => {
       mockClient.request.mockResolvedValueOnce(mockLocationsResponse);
 
-      await api.find({ zipCode: '45202', lat: 39.1031, lon: -84.5120 }, 'access-token');
+      await api.find({ zipCode: '45202', lat: 39.1031, lon: -84.512 }, 'access-token');
 
       const url = mockClient.request.mock.calls[0][0] as string;
       expect(url).toContain('filter.zipCode.near=45202');
@@ -175,7 +175,7 @@ describe('LocationsAPI', () => {
       },
       geolocation: {
         latitude: 39.1031,
-        longitude: -84.5120,
+        longitude: -84.512,
         latLng: '39.1031,-84.5120',
       },
       phone: '513-555-1234',

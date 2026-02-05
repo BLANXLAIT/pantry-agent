@@ -42,9 +42,7 @@ export class KrogerClient {
   private readonly clientSecret: string | null;
 
   constructor(config: KrogerClientConfig) {
-    const host = config.environment === 'production'
-      ? 'api.kroger.com'
-      : 'api-ce.kroger.com';
+    const host = config.environment === 'production' ? 'api.kroger.com' : 'api-ce.kroger.com';
 
     this.baseUrl = `https://${host}/v1`;
 
@@ -86,8 +84,10 @@ export class KrogerClient {
       });
 
       if (!response.ok) {
-        const error = await response.json() as APIError;
-        throw new Error(`Token request failed: ${error.error_description || error.error || response.statusText}`);
+        const error = (await response.json()) as APIError;
+        throw new Error(
+          `Token request failed: ${error.error_description || error.error || response.statusText}`
+        );
       }
 
       return response.json() as Promise<TokenResponse>;
@@ -103,14 +103,16 @@ export class KrogerClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${this.getBasicAuth()}`,
+        Authorization: `Basic ${this.getBasicAuth()}`,
       },
       body: body.toString(),
     });
 
     if (!response.ok) {
-      const error = await response.json() as APIError;
-      throw new Error(`Token request failed: ${error.error_description || error.reason || response.statusText}`);
+      const error = (await response.json()) as APIError;
+      throw new Error(
+        `Token request failed: ${error.error_description || error.reason || response.statusText}`
+      );
     }
 
     return response.json() as Promise<TokenResponse>;
@@ -130,8 +132,10 @@ export class KrogerClient {
       });
 
       if (!response.ok) {
-        const error = await response.json() as APIError;
-        throw new Error(`Code exchange failed: ${error.error_description || error.error || response.statusText}`);
+        const error = (await response.json()) as APIError;
+        throw new Error(
+          `Code exchange failed: ${error.error_description || error.error || response.statusText}`
+        );
       }
 
       return response.json() as Promise<TokenResponse>;
@@ -148,14 +152,16 @@ export class KrogerClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${this.getBasicAuth()}`,
+        Authorization: `Basic ${this.getBasicAuth()}`,
       },
       body: body.toString(),
     });
 
     if (!response.ok) {
-      const error = await response.json() as APIError;
-      throw new Error(`Code exchange failed: ${error.error_description || error.reason || response.statusText}`);
+      const error = (await response.json()) as APIError;
+      throw new Error(
+        `Code exchange failed: ${error.error_description || error.reason || response.statusText}`
+      );
     }
 
     return response.json() as Promise<TokenResponse>;
@@ -175,8 +181,10 @@ export class KrogerClient {
       });
 
       if (!response.ok) {
-        const error = await response.json() as APIError;
-        throw new Error(`Token refresh failed: ${error.error_description || error.error || response.statusText}`);
+        const error = (await response.json()) as APIError;
+        throw new Error(
+          `Token refresh failed: ${error.error_description || error.error || response.statusText}`
+        );
       }
 
       return response.json() as Promise<TokenResponse>;
@@ -192,14 +200,16 @@ export class KrogerClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${this.getBasicAuth()}`,
+        Authorization: `Basic ${this.getBasicAuth()}`,
       },
       body: body.toString(),
     });
 
     if (!response.ok) {
-      const error = await response.json() as APIError;
-      throw new Error(`Token refresh failed: ${error.error_description || error.reason || response.statusText}`);
+      const error = (await response.json()) as APIError;
+      throw new Error(
+        `Token refresh failed: ${error.error_description || error.reason || response.statusText}`
+      );
     }
 
     return response.json() as Promise<TokenResponse>;
@@ -236,18 +246,14 @@ export class KrogerClient {
    * Make an authenticated API request to Kroger
    * (Always goes direct to Kroger, using the access token)
    */
-  async request<T>(
-    path: string,
-    accessToken: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  async request<T>(path: string, accessToken: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${path}`;
 
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        Authorization: `Bearer ${accessToken}`,
         ...options.headers,
       },
     });
@@ -262,7 +268,7 @@ export class KrogerClient {
 
       let errorMessage = response.statusText;
       try {
-        const error = await response.json() as APIError;
+        const error = (await response.json()) as APIError;
         errorMessage = error.error_description || error.reason || errorMessage;
       } catch {
         // Ignore JSON parse errors

@@ -76,7 +76,9 @@ describe('Configuration', () => {
 
       const { loadConfig } = await import('./config.js');
 
-      expect(() => loadConfig()).toThrow('Either FIREBASE_FUNCTIONS_URL or KROGER_CLIENT_ID environment variable is required');
+      expect(() => loadConfig()).toThrow(
+        'Either FIREBASE_FUNCTIONS_URL or KROGER_CLIENT_ID environment variable is required'
+      );
     });
 
     it('should throw error when using direct credentials without KROGER_CLIENT_SECRET', async () => {
@@ -86,7 +88,9 @@ describe('Configuration', () => {
 
       const { loadConfig } = await import('./config.js');
 
-      expect(() => loadConfig()).toThrow('KROGER_CLIENT_SECRET environment variable is required when using direct credentials');
+      expect(() => loadConfig()).toThrow(
+        'KROGER_CLIENT_SECRET environment variable is required when using direct credentials'
+      );
     });
 
     it('should throw error when no credentials at all', async () => {
@@ -96,7 +100,9 @@ describe('Configuration', () => {
 
       const { loadConfig } = await import('./config.js');
 
-      expect(() => loadConfig()).toThrow('Either FIREBASE_FUNCTIONS_URL or KROGER_CLIENT_ID environment variable is required');
+      expect(() => loadConfig()).toThrow(
+        'Either FIREBASE_FUNCTIONS_URL or KROGER_CLIENT_ID environment variable is required'
+      );
     });
   });
 });

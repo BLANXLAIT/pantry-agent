@@ -19,6 +19,10 @@ describe('Configuration', () => {
     vi.resetModules();
     // Create a fresh copy of process.env
     process.env = { ...originalEnv };
+    // Clear any existing config env vars
+    delete process.env.FIREBASE_FUNCTIONS_URL;
+    delete process.env.KROGER_CLIENT_ID;
+    delete process.env.KROGER_CLIENT_SECRET;
   });
 
   afterEach(() => {
@@ -28,17 +32,25 @@ describe('Configuration', () => {
   });
 
   describe('loadConfig', () => {
-    it('should prefer Firebase Functions URL when provided', async () => {
-      process.env.FIREBASE_FUNCTIONS_URL = 'https://test-proxy.run.app';
+    it('should use default Firebase Functions URL when no env vars set', async () => {
+      const { loadConfig } = await import('./config.js');
+      const config = loadConfig() as KrogerClientConfigProxy;
+
+      expect(config.firebaseFunctionsUrl).toBe('https://xcf2umzgsq-uc.a.run.app');
+      expect(config.environment).toBe('production');
+    });
+
+    it('should use custom Firebase Functions URL when provided', async () => {
+      process.env.FIREBASE_FUNCTIONS_URL = 'https://custom-proxy.run.app';
 
       const { loadConfig } = await import('./config.js');
       const config = loadConfig() as KrogerClientConfigProxy;
 
-      expect(config.firebaseFunctionsUrl).toBe('https://test-proxy.run.app');
-      expect(config.environment).toBe('certification');
+      expect(config.firebaseFunctionsUrl).toBe('https://custom-proxy.run.app');
+      expect(config.environment).toBe('production');
     });
 
-    it('should load direct credentials when no proxy URL', async () => {
+    it('should use direct credentials when both client ID and secret are provided', async () => {
       process.env.KROGER_CLIENT_ID = 'test-client-id';
       process.env.KROGER_CLIENT_SECRET = 'test-client-secret';
 
@@ -47,62 +59,37 @@ describe('Configuration', () => {
 
       expect(config.clientId).toBe('test-client-id');
       expect(config.clientSecret).toBe('test-client-secret');
-      expect(config.environment).toBe('certification');
+      expect(config.environment).toBe('production');
     });
 
-    it('should use certification environment by default', async () => {
+    it('should prefer direct credentials over Firebase URL', async () => {
       process.env.FIREBASE_FUNCTIONS_URL = 'https://test-proxy.run.app';
+      process.env.KROGER_CLIENT_ID = 'test-client-id';
+      process.env.KROGER_CLIENT_SECRET = 'test-client-secret';
 
       const { loadConfig } = await import('./config.js');
-      const config = loadConfig();
+      const config = loadConfig() as KrogerClientConfigDirect;
 
-      expect(config.environment).toBe('certification');
+      expect(config.clientId).toBe('test-client-id');
+      expect(config.clientSecret).toBe('test-client-secret');
+      expect('firebaseFunctionsUrl' in config).toBe(false);
     });
 
-    it('should use production environment when specified', async () => {
-      process.env.FIREBASE_FUNCTIONS_URL = 'https://test-proxy.run.app';
-      process.env.KROGER_ENVIRONMENT = 'production';
+    it('should fall back to Firebase URL when only client ID is provided', async () => {
+      process.env.KROGER_CLIENT_ID = 'test-client-id';
+      // No KROGER_CLIENT_SECRET
 
+      const { loadConfig } = await import('./config.js');
+      const config = loadConfig() as KrogerClientConfigProxy;
+
+      expect(config.firebaseFunctionsUrl).toBe('https://xcf2umzgsq-uc.a.run.app');
+    });
+
+    it('should always use production environment', async () => {
       const { loadConfig } = await import('./config.js');
       const config = loadConfig();
 
       expect(config.environment).toBe('production');
-    });
-
-    it('should throw error when no proxy URL and KROGER_CLIENT_ID is missing', async () => {
-      process.env.KROGER_CLIENT_SECRET = 'test-client-secret';
-      delete process.env.KROGER_CLIENT_ID;
-      delete process.env.FIREBASE_FUNCTIONS_URL;
-
-      const { loadConfig } = await import('./config.js');
-
-      expect(() => loadConfig()).toThrow(
-        'Either FIREBASE_FUNCTIONS_URL or KROGER_CLIENT_ID environment variable is required'
-      );
-    });
-
-    it('should throw error when using direct credentials without KROGER_CLIENT_SECRET', async () => {
-      process.env.KROGER_CLIENT_ID = 'test-client-id';
-      delete process.env.KROGER_CLIENT_SECRET;
-      delete process.env.FIREBASE_FUNCTIONS_URL;
-
-      const { loadConfig } = await import('./config.js');
-
-      expect(() => loadConfig()).toThrow(
-        'KROGER_CLIENT_SECRET environment variable is required when using direct credentials'
-      );
-    });
-
-    it('should throw error when no credentials at all', async () => {
-      delete process.env.KROGER_CLIENT_ID;
-      delete process.env.KROGER_CLIENT_SECRET;
-      delete process.env.FIREBASE_FUNCTIONS_URL;
-
-      const { loadConfig } = await import('./config.js');
-
-      expect(() => loadConfig()).toThrow(
-        'Either FIREBASE_FUNCTIONS_URL or KROGER_CLIENT_ID environment variable is required'
-      );
     });
   });
 });

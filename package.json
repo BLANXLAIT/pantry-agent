@@ -1,11 +1,11 @@
 {
   "name": "@blanxlait/pantry-agent",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "MCP server for Kroger grocery shopping - search products, find stores, and manage your cart with AI",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "pantry-agent": "dist/cli.js"
+    "pantry-agent": "dist/index.js"
   },
   "files": [
     "dist/**/*.js",

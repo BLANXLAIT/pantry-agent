@@ -3,9 +3,12 @@
  * Manages OAuth2 tokens for both app-level and user-level auth
  */
 
+import { createServer, type Server } from 'node:http';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { URL } from 'node:url';
+import open from 'open';
 import type { KrogerClient } from '../api/client.js';
 import type { StoredTokens, TokenResponse } from '../api/types.js';
 
@@ -15,8 +18,15 @@ const TOKENS_FILE = join(CONFIG_DIR, 'tokens.json');
 // Buffer time before token expiration (5 minutes)
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
+// OAuth callback server config
+const REDIRECT_PORT = 3000;
+const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/callback`;
+const AUTH_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 export class AuthService {
   private appToken: { accessToken: string; expiresAt: number } | null = null;
+  private authServer: Server | null = null;
+  private authInProgress = false;
 
   constructor(private readonly client: KrogerClient) {}
 
@@ -153,5 +163,114 @@ export class AuthService {
    */
   getAuthorizationUrl(redirectUri: string, scope: string): string {
     return this.client.getAuthorizationUrl(redirectUri, scope);
+  }
+
+  /**
+   * Check if auth flow is currently in progress
+   */
+  isAuthInProgress(): boolean {
+    return this.authInProgress;
+  }
+
+  /**
+   * Start the OAuth flow - opens browser and waits for callback
+   * Returns immediately after opening browser
+   */
+  async startAuthFlow(scope: string): Promise<void> {
+    if (this.authInProgress) {
+      return; // Already in progress
+    }
+
+    this.authInProgress = true;
+    const authUrl = this.client.getAuthorizationUrl(REDIRECT_URI, scope);
+
+    // Create callback server
+    this.authServer = createServer(async (req, res) => {
+      const url = new URL(req.url || '/', `http://localhost:${REDIRECT_PORT}`);
+
+      if (url.pathname === '/callback') {
+        const code = url.searchParams.get('code');
+        const error = url.searchParams.get('error');
+
+        if (error) {
+          this.sendHtmlResponse(res, 400, '❌', 'Authentication Failed', `Error: ${error}`);
+          this.cleanupAuthServer();
+          return;
+        }
+
+        if (!code) {
+          this.sendHtmlResponse(
+            res,
+            400,
+            '❌',
+            'Authentication Failed',
+            'No authorization code received.'
+          );
+          this.cleanupAuthServer();
+          return;
+        }
+
+        try {
+          await this.handleCallback(code, REDIRECT_URI, scope);
+          this.sendHtmlResponse(
+            res,
+            200,
+            '✅',
+            'Authentication Successful',
+            'You are now logged in to Kroger.<br>Return to Claude and try your request again.'
+          );
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          this.sendHtmlResponse(res, 500, '❌', 'Authentication Failed', message);
+        }
+
+        this.cleanupAuthServer();
+      } else {
+        res.writeHead(404);
+        res.end('Not found');
+      }
+    });
+
+    this.authServer.listen(REDIRECT_PORT, () => {
+      open(authUrl);
+    });
+
+    // Timeout after 5 minutes
+    setTimeout(() => {
+      this.cleanupAuthServer();
+    }, AUTH_TIMEOUT_MS);
+  }
+
+  /**
+   * Clean up auth server
+   */
+  private cleanupAuthServer(): void {
+    if (this.authServer) {
+      this.authServer.close();
+      this.authServer = null;
+    }
+    this.authInProgress = false;
+  }
+
+  /**
+   * Send HTML response for OAuth callback
+   */
+  private sendHtmlResponse(
+    res: import('node:http').ServerResponse,
+    statusCode: number,
+    icon: string,
+    title: string,
+    message: string
+  ): void {
+    res.writeHead(statusCode, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`
+      <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: system-ui; padding: 40px; text-align: center;">
+          <h1>${icon} ${title}</h1>
+          <p>${message}</p>
+        </body>
+      </html>
+    `);
   }
 }

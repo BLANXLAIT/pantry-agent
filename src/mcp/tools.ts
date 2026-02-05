@@ -212,9 +212,11 @@ export function callToolHandler(kroger: KrogerService) {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      if (message.includes('not authenticated')) {
-        return errorResult(
-          'Not authenticated. Please run `pantry-agent auth` in your terminal to log in to Kroger.'
+      if (message.startsWith('AUTH_REQUIRED:')) {
+        // Auto-auth flow was started - return helpful message, not an error
+        return textResult(
+          '🔐 Opening browser for Kroger login...\n\n' +
+            'Please complete the login in your browser, then try your request again.'
         );
       }
       return errorResult(`Error: ${message}`);

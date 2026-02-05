@@ -129,13 +129,31 @@ export class KrogerService {
   }
 
   /**
+   * Check if auth flow is in progress
+   */
+  isAuthInProgress(): boolean {
+    return this.auth.isAuthInProgress();
+  }
+
+  /**
+   * Start OAuth flow - opens browser for user login
+   */
+  async startAuthFlow(): Promise<void> {
+    await this.auth.startAuthFlow(SCOPE_USER);
+  }
+
+  /**
    * Add items to user's cart
-   * Requires user authentication
+   * Requires user authentication - auto-starts auth flow if not authenticated
    */
   async addToCart(options: AddToCartOptions): Promise<void> {
     const token = await this.auth.getUserToken();
     if (!token) {
-      throw new Error('User not authenticated. Run `pantry-agent auth` to log in.');
+      await this.startAuthFlow();
+      throw new Error(
+        'AUTH_REQUIRED: A browser window has been opened for Kroger login. ' +
+          'Please complete the login, then try this request again.'
+      );
     }
 
     await this.cart.addItems(options.items, token);
@@ -143,12 +161,16 @@ export class KrogerService {
 
   /**
    * Get user profile
-   * Requires user authentication
+   * Requires user authentication - auto-starts auth flow if not authenticated
    */
   async getProfile(): Promise<Profile> {
     const token = await this.auth.getUserToken();
     if (!token) {
-      throw new Error('User not authenticated. Run `pantry-agent auth` to log in.');
+      await this.startAuthFlow();
+      throw new Error(
+        'AUTH_REQUIRED: A browser window has been opened for Kroger login. ' +
+          'Please complete the login, then try this request again.'
+      );
     }
 
     return this.identity.getProfile(token);

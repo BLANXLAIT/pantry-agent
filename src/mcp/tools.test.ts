@@ -340,9 +340,9 @@ describe('MCP Tools', () => {
         expect((result.content[0] as any).text).toContain('Successfully added 3 item(s)');
       });
 
-      it('should return auth error when not authenticated', async () => {
+      it('should return auth prompt when not authenticated', async () => {
         mockKroger.addToCart.mockRejectedValueOnce(
-          new Error('User not authenticated. Run `pantry-agent auth` to log in.')
+          new Error('AUTH_REQUIRED: A browser window has been opened for Kroger login.')
         );
 
         const handler = callToolHandler(mockKroger as unknown as KrogerService);
@@ -358,9 +358,10 @@ describe('MCP Tools', () => {
 
         const result = await handler(request);
 
-        expect((result as any).isError).toBe(true);
-        expect((result.content[0] as any).text).toContain('Not authenticated');
-        expect((result.content[0] as any).text).toContain('pantry-agent auth');
+        // Should NOT be an error - it's informational
+        expect((result as any).isError).toBeUndefined();
+        expect((result.content[0] as any).text).toContain('Opening browser');
+        expect((result.content[0] as any).text).toContain('try your request again');
       });
     });
 
@@ -386,9 +387,9 @@ describe('MCP Tools', () => {
         expect(parsed.id).toBe('user-123-abc');
       });
 
-      it('should return auth error when not authenticated', async () => {
+      it('should return auth prompt when not authenticated', async () => {
         mockKroger.getProfile.mockRejectedValueOnce(
-          new Error('User not authenticated. Run `pantry-agent auth` to log in.')
+          new Error('AUTH_REQUIRED: A browser window has been opened for Kroger login.')
         );
 
         const handler = callToolHandler(mockKroger as unknown as KrogerService);
@@ -402,8 +403,9 @@ describe('MCP Tools', () => {
 
         const result = await handler(request);
 
-        expect((result as any).isError).toBe(true);
-        expect((result.content[0] as any).text).toContain('Not authenticated');
+        // Should NOT be an error - it's informational
+        expect((result as any).isError).toBeUndefined();
+        expect((result.content[0] as any).text).toContain('Opening browser');
       });
     });
 

@@ -21,25 +21,21 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
   "mcpServers": {
     "pantry-agent": {
       "command": "npx",
-      "args": ["-y", "@blanxlait/pantry-agent"],
-      "env": {
-        "FIREBASE_FUNCTIONS_URL": "https://xcf2umzgsq-uc.a.run.app",
-        "KROGER_ENVIRONMENT": "production"
-      }
+      "args": ["-y", "@blanxlait/pantry-agent"]
     }
   }
 }
 ```
 
-### Authentication (Optional)
+### Authentication
 
-For cart and profile features, authenticate with your Kroger account:
+For cart and profile features, authentication is **automatic**. When you use a feature that requires login, a browser window will open for Kroger authentication.
+
+You can also authenticate manually:
 
 ```bash
 npx @blanxlait/pantry-agent auth
 ```
-
-This opens a browser window for Kroger login. Your tokens are stored locally at `~/.pantry-agent/tokens.json`.
 
 Check auth status:
 
@@ -52,6 +48,8 @@ Log out:
 ```bash
 npx @blanxlait/pantry-agent auth --logout
 ```
+
+Tokens are stored locally at `~/.pantry-agent/tokens.json`.
 
 ## Available Tools
 

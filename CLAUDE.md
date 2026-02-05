@@ -75,16 +75,15 @@ Secrets stored in Firebase Secrets: `KROGER_CLIENT_ID`, `KROGER_CLIENT_SECRET`
 ### Authentication Flow
 
 **Two token types:**
+
 1. **Client credentials** (app-level): For product search, store lookup. No user login needed.
 2. **Authorization code** (user-level): For cart, profile. Requires user OAuth consent.
 
-**User auth flow:**
-1. `pantry-agent auth` starts local server on port 3000
-2. Opens browser to Kroger consent page
-3. User logs in, grants permissions
-4. Callback to `localhost:3000/callback` with code
-5. Code exchanged for tokens via Firebase proxy
-6. Tokens saved to `~/.pantry-agent/tokens.json`
+**Auto-auth:** When a user-level tool (add_to_cart, get_profile) is called without authentication, the server automatically opens a browser for Kroger login. User completes login, then retries the request.
+
+**Manual auth:** Run `pantry-agent auth` CLI command to authenticate ahead of time.
+
+**Token storage:** `~/.pantry-agent/tokens.json`
 
 **Token refresh:** Proactive refresh 5 minutes before expiry. Refresh tokens are single-use.
 
@@ -103,11 +102,17 @@ Tests are co-located with source files (`*.test.ts`). Uses Vitest with globals e
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 describe('Component', () => {
-  beforeEach(() => { /* setup */ });
-  afterEach(() => { vi.resetAllMocks(); });
+  beforeEach(() => {
+    /* setup */
+  });
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
 
   it('should do X', async () => {
-    mockFetch.mockResolvedValueOnce({ /* response */ });
+    mockFetch.mockResolvedValueOnce({
+      /* response */
+    });
     const result = await instance.method();
     expect(result).toEqual(expected);
   });
@@ -121,23 +126,20 @@ Mock external HTTP calls (fetch), test through service layer.
 - Node.js 20+ required
 - ES modules (`"type": "module"`)
 - TypeScript strict mode
-- Kroger certification environment for dev, production for user accounts
 
 ## Configuration
 
-Two modes supported:
+**Default (no configuration needed):** Uses hardcoded Firebase Functions URL. Just run:
 
-**Firebase Proxy (recommended for distribution):**
 ```bash
-FIREBASE_FUNCTIONS_URL=https://xcf2umzgsq-uc.a.run.app
-KROGER_ENVIRONMENT=certification
+npx @blanxlait/pantry-agent
 ```
 
 **Direct Credentials (local dev only):**
+
 ```bash
 KROGER_CLIENT_ID=your_client_id
 KROGER_CLIENT_SECRET=your_secret
-KROGER_ENVIRONMENT=certification
 ```
 
-The Firebase proxy is preferred as it keeps secrets server-side.
+Only set these if you have your own Kroger API credentials for development.

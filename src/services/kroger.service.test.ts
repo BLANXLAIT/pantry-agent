@@ -26,6 +26,19 @@ vi.mock('node:os', () => ({
   homedir: vi.fn(() => '/mock/home'),
 }));
 
+// Mock open module to prevent browser opening during tests
+vi.mock('open', () => ({
+  default: vi.fn(),
+}));
+
+// Mock node:http to prevent server creation during tests
+vi.mock('node:http', () => ({
+  createServer: vi.fn(() => ({
+    listen: vi.fn(),
+    close: vi.fn(),
+  })),
+}));
+
 import { existsSync, readFileSync } from 'node:fs';
 const mockExistsSync = vi.mocked(existsSync);
 const mockReadFileSync = vi.mocked(readFileSync);
@@ -291,12 +304,10 @@ describe('KrogerService', () => {
       { upc: '0001111041701', quantity: 1 },
     ];
 
-    it('should throw error when user not authenticated', async () => {
+    it('should start auth flow when user not authenticated', async () => {
       mockExistsSync.mockReturnValue(false);
 
-      await expect(service.addToCart({ items })).rejects.toThrow(
-        'User not authenticated. Run `pantry-agent auth` to log in.'
-      );
+      await expect(service.addToCart({ items })).rejects.toThrow('AUTH_REQUIRED');
     });
 
     it('should add items to cart with user token', async () => {
@@ -326,12 +337,10 @@ describe('KrogerService', () => {
   });
 
   describe('getProfile', () => {
-    it('should throw error when user not authenticated', async () => {
+    it('should start auth flow when user not authenticated', async () => {
       mockExistsSync.mockReturnValue(false);
 
-      await expect(service.getProfile()).rejects.toThrow(
-        'User not authenticated. Run `pantry-agent auth` to log in.'
-      );
+      await expect(service.getProfile()).rejects.toThrow('AUTH_REQUIRED');
     });
 
     it('should get profile with user token', async () => {

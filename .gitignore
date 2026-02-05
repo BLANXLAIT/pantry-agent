@@ -1,0 +1,33 @@
+# Environment variables (contains secrets)
+.env
+.env.local
+.env.*.local
+
+# Claude Desktop config (contains secrets)
+claude-desktop-config.json
+
+# Firebase
+firebase-debug.log
+.firebase/
+functions/.secret.local
+
+# Node
+node_modules/
+
+# Build output
+dist/
+functions/lib/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store

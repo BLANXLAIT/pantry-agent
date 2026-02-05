@@ -31,25 +31,12 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 
 For cart and profile features, authentication is **automatic**. When you use a feature that requires login, a browser window will open for Kroger authentication.
 
-You can also authenticate manually:
+Tokens are stored locally at `~/.pantry-agent/tokens.json`. To manage authentication:
 
 ```bash
-npx @blanxlait/pantry-agent auth
+npx @blanxlait/pantry-agent auth --status   # Check if logged in
+npx @blanxlait/pantry-agent auth --logout   # Clear stored tokens
 ```
-
-Check auth status:
-
-```bash
-npx @blanxlait/pantry-agent auth --status
-```
-
-Log out:
-
-```bash
-npx @blanxlait/pantry-agent auth --logout
-```
-
-Tokens are stored locally at `~/.pantry-agent/tokens.json`.
 
 ## Available Tools
 

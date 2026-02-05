@@ -34,6 +34,8 @@ const CartItemInput = z.object({
   modality: z.enum(['PICKUP', 'DELIVERY']).optional().describe('Fulfillment method'),
 });
 
+const GetProfileInput = {};
+
 const AddToCartInput = {
   items: z.array(CartItemInput).min(1, 'At least one item is required').describe('Items to add to cart'),
 };
@@ -243,7 +245,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
     'get_profile',
     {
       description: "Get the authenticated user's Kroger profile. Requires user authentication.",
-      inputSchema: {},
+      inputSchema: GetProfileInput,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,

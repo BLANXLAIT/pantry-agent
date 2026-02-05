@@ -1,60 +1,40 @@
 /**
  * MCP Resources
- * Resource definitions for the MCP server
+ * Resource registration for the MCP server
  */
 
-import type {
-  ListResourcesRequest,
-  ReadResourceRequest,
-  Resource,
-} from '@modelcontextprotocol/sdk/types.js';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { KrogerService } from '../services/kroger.service.js';
 
-const RESOURCES: Resource[] = [
-  {
-    uri: 'kroger://auth/status',
-    name: 'Authentication Status',
-    description: 'Current Kroger authentication status',
-    mimeType: 'application/json',
-  },
-];
+export function registerResources(server: McpServer, kroger: KrogerService): void {
+  server.registerResource(
+    'Authentication Status',
+    'kroger://auth/status',
+    {
+      description: 'Current Kroger authentication status',
+      mimeType: 'application/json',
+    },
+    async () => {
+      const isAuthenticated = await kroger.isUserAuthenticated();
 
-export function getResourcesHandler() {
-  return async (_request: ListResourcesRequest) => ({
-    resources: RESOURCES,
-  });
-}
-
-export function readResourceHandler(kroger: KrogerService) {
-  return async (request: ReadResourceRequest) => {
-    const { uri } = request.params;
-
-    switch (uri) {
-      case 'kroger://auth/status': {
-        const isAuthenticated = await kroger.isUserAuthenticated();
-
-        return {
-          contents: [
-            {
-              uri,
-              mimeType: 'application/json',
-              text: JSON.stringify(
-                {
-                  authenticated: isAuthenticated,
-                  message: isAuthenticated
-                    ? 'User is authenticated with Kroger'
-                    : 'Not authenticated. Run `pantry-agent auth` to log in.',
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
-
-      default:
-        throw new Error(`Unknown resource: ${uri}`);
+      return {
+        contents: [
+          {
+            uri: 'kroger://auth/status',
+            mimeType: 'application/json',
+            text: JSON.stringify(
+              {
+                authenticated: isAuthenticated,
+                message: isAuthenticated
+                  ? 'User is authenticated with Kroger'
+                  : 'Not authenticated. Run `pantry-agent auth` to log in.',
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
     }
-  };
+  );
 }

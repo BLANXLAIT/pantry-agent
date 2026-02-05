@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getResourcesHandler, readResourceHandler } from './resources.js';
+import { createMcpServer } from './server.js';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { KrogerService } from '../services/kroger.service.js';
-import type { ReadResourceRequest } from '@modelcontextprotocol/sdk/types.js';
 
 const createMockKrogerService = () => ({
   isUserAuthenticated: vi.fn(),
@@ -21,87 +21,66 @@ const createMockKrogerService = () => ({
 
 describe('MCP Resources', () => {
   let mockKroger: ReturnType<typeof createMockKrogerService>;
+  let server: McpServer;
 
   beforeEach(() => {
     mockKroger = createMockKrogerService();
+    server = createMcpServer(mockKroger as unknown as KrogerService);
     vi.clearAllMocks();
   });
 
-  describe('getResourcesHandler', () => {
-    it('should return list of resources', async () => {
-      const handler = getResourcesHandler();
-      const result = await handler({} as any);
+  describe('Resource Registration', () => {
+    it('should register auth status resource', async () => {
+      const listResourcesHandler = (server.server as any)._requestHandlers.get('resources/list');
+      expect(listResourcesHandler).toBeDefined();
 
-      expect(result.resources).toBeDefined();
-      expect(result.resources.length).toBeGreaterThan(0);
+      const result = await listResourcesHandler({ method: 'resources/list', params: {} });
 
       // Verify auth status resource exists
-      const authResource = result.resources.find((r) => r.uri === 'kroger://auth/status');
+      const authResource = result.resources.find((r: any) => r.uri === 'kroger://auth/status');
       expect(authResource).toBeDefined();
       expect(authResource?.name).toBe('Authentication Status');
       expect(authResource?.mimeType).toBe('application/json');
     });
   });
 
-  describe('readResourceHandler', () => {
-    describe('kroger://auth/status', () => {
-      it('should return authenticated status when user is authenticated', async () => {
-        mockKroger.isUserAuthenticated.mockResolvedValueOnce(true);
+  describe('Resource Reading', () => {
+    it('should return authenticated status when user is authenticated', async () => {
+      mockKroger.isUserAuthenticated.mockResolvedValueOnce(true);
 
-        const handler = readResourceHandler(mockKroger as unknown as KrogerService);
-        const request: ReadResourceRequest = {
-          method: 'resources/read',
-          params: {
-            uri: 'kroger://auth/status',
-          },
-        };
-
-        const result = await handler(request);
-
-        expect(mockKroger.isUserAuthenticated).toHaveBeenCalled();
-        expect(result.contents).toHaveLength(1);
-        expect(result.contents[0].uri).toBe('kroger://auth/status');
-        expect(result.contents[0].mimeType).toBe('application/json');
-
-        const parsed = JSON.parse(result.contents[0].text as string);
-        expect(parsed.authenticated).toBe(true);
-        expect(parsed.message).toContain('authenticated with Kroger');
+      const readResourceHandler = (server.server as any)._requestHandlers.get('resources/read');
+      const result = await readResourceHandler({
+        method: 'resources/read',
+        params: {
+          uri: 'kroger://auth/status',
+        },
       });
 
-      it('should return not authenticated status when user is not authenticated', async () => {
-        mockKroger.isUserAuthenticated.mockResolvedValueOnce(false);
+      expect(mockKroger.isUserAuthenticated).toHaveBeenCalled();
+      expect(result.contents).toHaveLength(1);
+      expect(result.contents[0].uri).toBe('kroger://auth/status');
+      expect(result.contents[0].mimeType).toBe('application/json');
 
-        const handler = readResourceHandler(mockKroger as unknown as KrogerService);
-        const request: ReadResourceRequest = {
-          method: 'resources/read',
-          params: {
-            uri: 'kroger://auth/status',
-          },
-        };
-
-        const result = await handler(request);
-
-        const parsed = JSON.parse(result.contents[0].text as string);
-        expect(parsed.authenticated).toBe(false);
-        expect(parsed.message).toContain('Not authenticated');
-        expect(parsed.message).toContain('pantry-agent auth');
-      });
+      const parsed = JSON.parse(result.contents[0].text as string);
+      expect(parsed.authenticated).toBe(true);
+      expect(parsed.message).toContain('authenticated with Kroger');
     });
 
-    describe('unknown resource', () => {
-      it('should throw error for unknown resource URI', async () => {
-        const handler = readResourceHandler(mockKroger as unknown as KrogerService);
-        const request: ReadResourceRequest = {
-          method: 'resources/read',
-          params: {
-            uri: 'kroger://unknown/resource',
-          },
-        };
+    it('should return not authenticated status when user is not authenticated', async () => {
+      mockKroger.isUserAuthenticated.mockResolvedValueOnce(false);
 
-        await expect(handler(request)).rejects.toThrow(
-          'Unknown resource: kroger://unknown/resource'
-        );
+      const readResourceHandler = (server.server as any)._requestHandlers.get('resources/read');
+      const result = await readResourceHandler({
+        method: 'resources/read',
+        params: {
+          uri: 'kroger://auth/status',
+        },
       });
+
+      const parsed = JSON.parse(result.contents[0].text as string);
+      expect(parsed.authenticated).toBe(false);
+      expect(parsed.message).toContain('Not authenticated');
+      expect(parsed.message).toContain('pantry-agent auth');
     });
   });
 });

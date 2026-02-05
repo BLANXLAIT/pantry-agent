@@ -1,62 +1,36 @@
 /**
  * MCP Prompts
- * Prompt templates for the MCP server
+ * Prompt registration for the MCP server
  */
 
-import type {
-  ListPromptsRequest,
-  GetPromptRequest,
-  Prompt,
-} from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
-const PROMPTS: Prompt[] = [
-  {
-    name: 'grocery-assistant',
-    description: 'System prompt for assisting with grocery shopping at Kroger',
-    arguments: [
-      {
-        name: 'storeName',
-        description: 'Name of the store to shop at',
-        required: false,
+export function registerPrompts(server: McpServer): void {
+  server.registerPrompt(
+    'grocery-assistant',
+    {
+      description: 'System prompt for assisting with grocery shopping at Kroger',
+      argsSchema: {
+        storeName: z.string().optional().describe('Name of the store to shop at'),
+        locationId: z.string().optional().describe('Store location ID if known'),
       },
-      {
-        name: 'locationId',
-        description: 'Store location ID if known',
-        required: false,
-      },
-    ],
-  },
-];
+    },
+    async ({ storeName, locationId }) => {
+      let context = '';
+      if (storeName && locationId) {
+        context = `\n\nThe user is shopping at ${storeName} (location ID: ${locationId}).`;
+      } else if (storeName) {
+        context = `\n\nThe user wants to shop at ${storeName}. Use find_stores to get the location ID.`;
+      }
 
-export function getPromptsHandler() {
-  return async (_request: ListPromptsRequest) => ({
-    prompts: PROMPTS,
-  });
-}
-
-export function getPromptHandler() {
-  return async (request: GetPromptRequest) => {
-    const { name, arguments: args } = request.params;
-
-    switch (name) {
-      case 'grocery-assistant': {
-        const storeName = args?.storeName;
-        const locationId = args?.locationId;
-
-        let context = '';
-        if (storeName && locationId) {
-          context = `\n\nThe user is shopping at ${storeName} (location ID: ${locationId}).`;
-        } else if (storeName) {
-          context = `\n\nThe user wants to shop at ${storeName}. Use find_stores to get the location ID.`;
-        }
-
-        return {
-          messages: [
-            {
-              role: 'user' as const,
-              content: {
-                type: 'text' as const,
-                text: `You are a helpful grocery shopping assistant for Kroger stores.
+      return {
+        messages: [
+          {
+            role: 'user' as const,
+            content: {
+              type: 'text' as const,
+              text: `You are a helpful grocery shopping assistant for Kroger stores.
 
 You can help users:
 - Find nearby Kroger stores (use find_stores with their ZIP code)
@@ -72,14 +46,10 @@ Important guidelines:
 - Display product information clearly and concisely${context}
 
 How can I help you with your grocery shopping today?`,
-              },
             },
-          ],
-        };
-      }
-
-      default:
-        throw new Error(`Unknown prompt: ${name}`);
+          },
+        ],
+      };
     }
-  };
+  );
 }

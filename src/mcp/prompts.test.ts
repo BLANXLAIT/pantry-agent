@@ -31,14 +31,27 @@ describe('MCP Prompts', () => {
   describe('Prompt Registration', () => {
     it('should register grocery-assistant prompt', async () => {
       const listPromptsHandler = (server.server as any)._requestHandlers.get('prompts/list');
-      expect(listPromptsHandler).toBeDefined();
-
       const result = await listPromptsHandler({ method: 'prompts/list', params: {} });
 
-      // Verify grocery-assistant prompt exists
       const groceryPrompt = result.prompts.find((p: any) => p.name === 'grocery-assistant');
       expect(groceryPrompt).toBeDefined();
       expect(groceryPrompt?.description).toContain('grocery shopping');
+    });
+
+    it('should have proper arguments for grocery-assistant prompt', async () => {
+      const listPromptsHandler = (server.server as any)._requestHandlers.get('prompts/list');
+      const result = await listPromptsHandler({ method: 'prompts/list', params: {} });
+
+      const groceryPrompt = result.prompts.find((p: any) => p.name === 'grocery-assistant');
+      expect(groceryPrompt?.arguments).toBeDefined();
+
+      const storeNameArg = groceryPrompt?.arguments?.find((a: any) => a.name === 'storeName');
+      expect(storeNameArg).toBeDefined();
+      expect(storeNameArg?.required).toBe(false);
+
+      const locationIdArg = groceryPrompt?.arguments?.find((a: any) => a.name === 'locationId');
+      expect(locationIdArg).toBeDefined();
+      expect(locationIdArg?.required).toBe(false);
     });
   });
 
@@ -98,6 +111,36 @@ describe('MCP Prompts', () => {
       const text = (result.messages[0].content as any).text;
       expect(text).toContain('wants to shop at Kroger');
       expect(text).toContain('find_stores to get the location ID');
+    });
+
+    it('should handle empty arguments object', async () => {
+      const getPromptHandler = (server.server as any)._requestHandlers.get('prompts/get');
+      const result = await getPromptHandler({
+        method: 'prompts/get',
+        params: {
+          name: 'grocery-assistant',
+          arguments: {},
+        },
+      });
+
+      const text = (result.messages[0].content as any).text;
+      expect(text).toContain('grocery shopping assistant');
+      expect(text).not.toContain('shopping at');
+    });
+  });
+
+  describe('Unknown Prompt', () => {
+    it('should throw error for unknown prompt name', async () => {
+      const getPromptHandler = (server.server as any)._requestHandlers.get('prompts/get');
+      
+      await expect(
+        getPromptHandler({
+          method: 'prompts/get',
+          params: {
+            name: 'unknown-prompt',
+          },
+        })
+      ).rejects.toThrow();
     });
   });
 });

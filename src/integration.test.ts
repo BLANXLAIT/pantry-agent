@@ -1,10 +1,17 @@
 /**
  * Integration Tests
  *
- * Basic smoke tests for the MCP server integration.
+ * These tests demonstrate how to test the full flow from MCP tools
+ * through the service layer to the API client. They use mocked fetch
+ * but exercise the real integration between components.
+ *
+ * To run actual integration tests against the Kroger API:
+ * 1. Set KROGER_CLIENT_ID and KROGER_CLIENT_SECRET environment variables
+ * 2. Remove the fetch mock
+ * 3. Mark tests with .skip that require user authentication
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { KrogerService } from './services/kroger.service.js';
 import { createMcpServer } from './mcp/server.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -25,6 +32,15 @@ vi.mock('node:os', () => ({
   homedir: vi.fn(() => '/mock/home'),
 }));
 
+// Helper to call tools through the MCP server
+async function callTool(server: McpServer, name: string, args: any) {
+  const callToolHandler = (server.server as any)._requestHandlers.get('tools/call');
+  return await callToolHandler({
+    method: 'tools/call',
+    params: { name, arguments: args },
+  });
+}
+
 describe('Integration Tests', () => {
   let krogerService: KrogerService;
   let server: McpServer;
@@ -41,23 +57,261 @@ describe('Integration Tests', () => {
     server = createMcpServer(krogerService);
   });
 
-  it('should create MCP server with all components', () => {
-    expect(server).toBeDefined();
-    expect(server.server).toBeDefined();
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('should register tools handler', () => {
-    const listToolsHandler = (server.server as any)._requestHandlers.get('tools/list');
-    expect(listToolsHandler).toBeDefined();
+  describe('Product Search Flow', () => {
+    it('should search products through MCP tool to API', async () => {
+      // Mock client credentials token response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            access_token: 'app-token-123',
+            token_type: 'bearer',
+            expires_in: 1800,
+          }),
+      });
+
+      // Mock product search response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            data: [
+              {
+                productId: '0001111041700',
+                upc: '0001111041700',
+                description: 'Kroger 2% Reduced Fat Milk',
+                brand: 'Kroger',
+                items: [
+                  {
+                    itemId: 'item-1',
+                    price: { regular: 3.99 },
+                    inventory: { stockLevel: 'HIGH' },
+                  },
+                ],
+                aisleLocations: [{ description: 'Dairy' }],
+              },
+            ],
+            meta: { pagination: { start: 0, limit: 10, total: 1 } },
+          }),
+      });
+
+      const result = await callTool(server, 'search_products', {
+        term: 'milk',
+        locationId: '01400943',
+      });
+
+      // Verify token was fetched first
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('/connect/oauth2/token'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: expect.stringMatching(/^Basic /),
+          }),
+        })
+      );
+
+      // Verify product search was called with token
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('/products?filter.term=milk'),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer app-token-123',
+          }),
+        })
+      );
+
+      // Verify result format
+      expect(result.content).toHaveLength(1);
+      const parsed = JSON.parse((result.content[0] as any).text);
+      expect(parsed.count).toBe(1);
+      expect(parsed.products).toHaveLength(1);
+      expect(parsed.products[0].productId).toBe('0001111041700');
+      expect(parsed.products[0].price).toBe(3.99);
+      expect(parsed.products[0].inStock).toBe(true);
+    });
+
+    it('should cache app token for subsequent requests', async () => {
+      // First request - token fetch + product search
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              access_token: 'app-token-123',
+              token_type: 'bearer',
+              expires_in: 1800,
+            }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              data: [
+                {
+                  productId: '001',
+                  description: 'Product 1',
+                  items: [{ price: { regular: 1.99 } }],
+                },
+              ],
+              meta: { pagination: { start: 0, limit: 10, total: 1 } },
+            }),
+        })
+        // Second request - only product search (no token fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              data: [
+                {
+                  productId: '002',
+                  description: 'Product 2',
+                  items: [{ price: { regular: 2.99 } }],
+                },
+              ],
+              meta: { pagination: { start: 0, limit: 10, total: 1 } },
+            }),
+        });
+
+      // First request
+      await callTool(server, 'search_products', {
+        term: 'test1',
+        locationId: '01400943',
+      });
+
+      // Second request should reuse token
+      await callTool(server, 'search_products', {
+        term: 'test2',
+        locationId: '01400943',
+      });
+
+      // Verify token was only fetched once
+      const tokenCalls = mockFetch.mock.calls.filter((call) =>
+        call[0].includes('/connect/oauth2/token')
+      );
+      expect(tokenCalls).toHaveLength(1);
+
+      // Verify both product searches used the same token
+      const productCalls = mockFetch.mock.calls.filter((call) =>
+        call[0].includes('/products')
+      );
+      expect(productCalls).toHaveLength(2);
+      expect(productCalls[0][1]?.headers?.Authorization).toBe('Bearer app-token-123');
+      expect(productCalls[1][1]?.headers?.Authorization).toBe('Bearer app-token-123');
+    });
   });
 
-  it('should register resources handler', () => {
-    const listResourcesHandler = (server.server as any)._requestHandlers.get('resources/list');
-    expect(listResourcesHandler).toBeDefined();
+  describe('Store Lookup Flow', () => {
+    it('should find stores through MCP tool to API', async () => {
+      // Mock client credentials token response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            access_token: 'app-token-456',
+            token_type: 'bearer',
+            expires_in: 1800,
+          }),
+      });
+
+      // Mock store search response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            data: [
+              {
+                locationId: '01400943',
+                name: 'Kroger',
+                chain: 'KROGER',
+                address: {
+                  addressLine1: '123 Main St',
+                  city: 'Cincinnati',
+                  state: 'OH',
+                  zipCode: '45202',
+                },
+                phone: '513-555-1234',
+              },
+            ],
+            meta: { pagination: { start: 0, limit: 5, total: 1 } },
+          }),
+      });
+
+      const result = await callTool(server, 'find_stores', { zipCode: '45202' });
+
+      // Verify API calls
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('/connect/oauth2/token'),
+        expect.any(Object)
+      );
+
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('/locations'),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer app-token-456',
+          }),
+        })
+      );
+
+      // Verify result format
+      const parsed = JSON.parse((result.content[0] as any).text);
+      expect(parsed.stores[0].locationId).toBe('01400943');
+      expect(parsed.stores[0].address).toBe('123 Main St, Cincinnati, OH 45202');
+    });
   });
 
-  it('should register prompts handler', () => {
-    const listPromptsHandler = (server.server as any)._requestHandlers.get('prompts/list');
-    expect(listPromptsHandler).toBeDefined();
+  describe('Error Handling', () => {
+    it('should handle API errors gracefully', async () => {
+      // Mock token fetch
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            access_token: 'app-token-123',
+            token_type: 'bearer',
+            expires_in: 1800,
+          }),
+      });
+
+      // Mock API error
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: 'Internal Server Error' }),
+      });
+
+      const result = await callTool(server, 'search_products', {
+        term: 'milk',
+        locationId: '01400943',
+      });
+
+      expect((result as any).isError).toBe(true);
+      expect((result.content[0] as any).text).toContain('Error');
+    });
+
+    it('should handle network errors', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network failure'));
+
+      const result = await callTool(server, 'search_products', {
+        term: 'milk',
+        locationId: '01400943',
+      });
+
+      expect((result as any).isError).toBe(true);
+      expect((result.content[0] as any).text).toContain('Error');
+    });
   });
 });

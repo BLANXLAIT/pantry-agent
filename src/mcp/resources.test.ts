@@ -32,11 +32,8 @@ describe('MCP Resources', () => {
   describe('Resource Registration', () => {
     it('should register auth status resource', async () => {
       const listResourcesHandler = (server.server as any)._requestHandlers.get('resources/list');
-      expect(listResourcesHandler).toBeDefined();
-
       const result = await listResourcesHandler({ method: 'resources/list', params: {} });
 
-      // Verify auth status resource exists
       const authResource = result.resources.find((r: any) => r.uri === 'kroger://auth/status');
       expect(authResource).toBeDefined();
       expect(authResource?.name).toBe('Authentication Status');
@@ -81,6 +78,21 @@ describe('MCP Resources', () => {
       expect(parsed.authenticated).toBe(false);
       expect(parsed.message).toContain('Not authenticated');
       expect(parsed.message).toContain('pantry-agent auth');
+    });
+  });
+
+  describe('Unknown Resource', () => {
+    it('should throw error for unknown resource URI', async () => {
+      const readResourceHandler = (server.server as any)._requestHandlers.get('resources/read');
+      
+      await expect(
+        readResourceHandler({
+          method: 'resources/read',
+          params: {
+            uri: 'kroger://unknown/resource',
+          },
+        })
+      ).rejects.toThrow('kroger://unknown/resource');
     });
   });
 });

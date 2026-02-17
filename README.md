@@ -1,14 +1,16 @@
 # Pantry Agent
 
-An MCP (Model Context Protocol) server for Kroger grocery shopping. Search products, find stores, and manage your cart through AI assistants like Claude.
+An MCP (Model Context Protocol) server for grocery shopping at Kroger-owned stores. Search products, find stores, check prices, and manage your cart through AI assistants like Claude.
+
+Works with **all Kroger-owned banners**: Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter, Food 4 Less, Fry's, Smith's, QFC, Mariano's, Pick 'n Save, and more — covering ~2,800 stores across the US.
 
 ## Features
 
-- **Product Search** - Search Kroger's catalog by name, brand, or description
-- **Store Finder** - Find Kroger stores near any ZIP code
+- **Product Search** - Search by name, brand, or description at any Kroger-owned store
+- **Store Finder** - Find nearby stores across all Kroger banners
 - **Product Details** - Get pricing, stock availability, and nutrition info
-- **Cart Management** - Add items to your Kroger cart (requires authentication)
-- **Profile Access** - View your Kroger account profile
+- **Cart Management** - Add items to your cart (requires authentication)
+- **Profile Access** - View your account profile
 
 ## Installation
 
@@ -53,15 +55,16 @@ npx @blanxlait/pantry-agent auth --logout   # Clear stored tokens
 
 Once configured, you can ask Claude things like:
 
-- "Search for organic milk at Kroger"
-- "Find Kroger stores near 45202"
+- "Search for organic milk at my local Kroger"
+- "Find grocery stores near 90210" (returns Ralphs, Food 4 Less, etc.)
 - "What are the nutrition facts for this product?"
-- "Add 2 gallons of milk to my Kroger cart"
+- "Add 2 gallons of milk to my cart"
+- "Find me a Ralphs in San Diego and search for avocados"
 
 ## Requirements
 
 - Node.js 20 or later
-- A Kroger account (for cart/profile features)
+- A Kroger account (for cart/profile features — works with any Kroger-owned banner login)
 
 ## Privacy
 

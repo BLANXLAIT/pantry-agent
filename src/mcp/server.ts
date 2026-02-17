@@ -12,7 +12,7 @@ import { registerPrompts } from './prompts.js';
 export function createMcpServer(kroger: KrogerService): McpServer {
   const server = new McpServer({
     name: 'pantry-agent',
-    version: '0.2.0',
+    version: '0.3.0',
   });
 
   // Register tools

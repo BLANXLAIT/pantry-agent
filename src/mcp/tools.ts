@@ -45,7 +45,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
   server.registerTool(
     'search_products',
     {
-      description: 'Search for products at a Kroger store by name, brand, or description',
+      description: 'Search for products at a Kroger-owned store by name, brand, or description. Works with Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter, Food 4 Less, Fry\'s, Smith\'s, and other Kroger banners.',
       inputSchema: SearchProductsInput,
       annotations: {
         readOnlyHint: true,
@@ -133,7 +133,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
   server.registerTool(
     'find_stores',
     {
-      description: 'Find Kroger stores near a ZIP code',
+      description: 'Find Kroger-owned stores near a ZIP code. Returns Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter, Food 4 Less, Fry\'s, Smith\'s, and other Kroger banners.',
       inputSchema: FindStoresInput,
       annotations: {
         readOnlyHint: true,
@@ -215,7 +215,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
   server.registerTool(
     'add_to_cart',
     {
-      description: "Add items to the user's Kroger cart. Requires user authentication.",
+      description: "Add items to the user's cart at any Kroger-owned store. Requires user authentication.",
       inputSchema: AddToCartInput,
       annotations: {
         readOnlyHint: false,
@@ -244,7 +244,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
   server.registerTool(
     'get_profile',
     {
-      description: "Get the authenticated user's Kroger profile. Requires user authentication.",
+      description: "Get the authenticated user's profile. Requires user authentication.",
       inputSchema: GetProfileInput,
       annotations: {
         readOnlyHint: true,

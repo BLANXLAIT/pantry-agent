@@ -1,0 +1,51 @@
+<evaluation>
+  <qa_pair>
+    <question>Find the Kroger store closest to ZIP code 45202 in Cincinnati. What is its location ID?</question>
+    <answer>01400513</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Search for "organic bananas" at store 01400513. What brand is the banana product?</question>
+    <answer>Fresh Bananas</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Find stores near ZIP code 92101 in San Diego. What chain is the first result?</question>
+    <answer>RALPHS</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Search for "milk" at the downtown San Diego Ralphs (70300123). Is Kroger 2% Reduced Fat Milk in stock?</question>
+    <answer>The answer depends on current inventory — use inStock field from search results</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Find stores near ZIP code 80202 (Denver). What Kroger banner operates in that area?</question>
+    <answer>KING SOOPERS</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Search for "eggs" at store 01400513 with a limit of 3. How many products are returned?</question>
+    <answer>3</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Find stores near ZIP code 97201 (Portland, OR). What Kroger banner operates there?</question>
+    <answer>FRED MEYER</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Search for "avocado" at Ralphs downtown San Diego (70300123) with limit 5. What is the cheapest avocado product price?</question>
+    <answer>The answer depends on current pricing — compare price fields from search results</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>How many tools does the pantry-agent MCP server expose? List them.</question>
+    <answer>6: search_products, get_product, find_stores, get_store, add_to_cart, get_profile</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Find stores near ZIP code 28202 (Charlotte, NC). What Kroger banner operates there?</question>
+    <answer>HARRIS TEETER</answer>
+  </qa_pair>
+</evaluation>

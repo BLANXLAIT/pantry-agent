@@ -40,6 +40,75 @@ const AddToCartInput = {
   items: z.array(CartItemInput).min(1, 'At least one item is required').describe('Items to add to cart'),
 };
 
+// Output schemas
+const ProductSummary = z.object({
+  productId: z.string(),
+  upc: z.string().optional(),
+  name: z.string().optional(),
+  brand: z.string().optional(),
+  price: z.number().optional(),
+  inStock: z.boolean(),
+  aisle: z.string().optional(),
+});
+
+const SearchProductsOutput = {
+  count: z.number(),
+  has_more: z.boolean(),
+  products: z.array(ProductSummary),
+};
+
+const ProductDetailOutput = {
+  productId: z.string(),
+  upc: z.string().optional(),
+  name: z.string().optional(),
+  brand: z.string().optional(),
+  categories: z.array(z.string()).optional(),
+  price: z.object({ regular: z.number().optional(), promo: z.number().optional() }).optional(),
+  size: z.string().optional(),
+  inStock: z.string().optional(),
+  fulfillment: z.object({
+    curbside: z.boolean().optional(),
+    delivery: z.boolean().optional(),
+    inStore: z.boolean().optional(),
+    shipToHome: z.boolean().optional(),
+  }).optional(),
+  aisle: z.object({ description: z.string().optional(), number: z.string().optional() }).optional(),
+};
+
+const StoreSummary = z.object({
+  locationId: z.string(),
+  name: z.string().optional(),
+  chain: z.string().optional(),
+  address: z.string(),
+  phone: z.string().optional(),
+});
+
+const FindStoresOutput = {
+  count: z.number(),
+  has_more: z.boolean(),
+  stores: z.array(StoreSummary),
+};
+
+const StoreDetailOutput = {
+  locationId: z.string(),
+  name: z.string().optional(),
+  chain: z.string().optional(),
+  address: z.any().optional(),
+  phone: z.string().optional(),
+  hours: z.any().optional(),
+  departments: z.array(z.string()).optional(),
+};
+
+const AddToCartOutput = {
+  success: z.boolean(),
+  itemCount: z.number(),
+  message: z.string(),
+};
+
+const ProfileOutput = {
+  id: z.string(),
+};
+
 export function registerTools(server: McpServer, kroger: KrogerService): void {
   // Register search_products tool
   server.registerTool(
@@ -47,6 +116,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
     {
       description: 'Search for products at a Kroger-owned store by name, brand, or description. Works with Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter, Food 4 Less, Fry\'s, Smith\'s, and other Kroger banners.',
       inputSchema: SearchProductsInput,
+      // outputSchema omitted: empty results and errors return plain text
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -82,6 +152,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result,
         };
       } catch (error) {
         return handleToolError(error);
@@ -96,6 +167,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
       description:
         'Get detailed information about a specific product including price, stock, and nutrition',
       inputSchema: GetProductInput,
+      // outputSchema omitted: errors return plain text
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -122,6 +194,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(formatted, null, 2) }],
+          structuredContent: formatted,
         };
       } catch (error) {
         return handleToolError(error);
@@ -135,6 +208,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
     {
       description: 'Find Kroger-owned stores near a ZIP code. Returns Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter, Food 4 Less, Fry\'s, Smith\'s, and other Kroger banners.',
       inputSchema: FindStoresInput,
+      // outputSchema omitted: empty results and errors return plain text
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -168,6 +242,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result,
         };
       } catch (error) {
         return handleToolError(error);
@@ -181,6 +256,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
     {
       description: 'Get detailed information about a specific store including hours and departments',
       inputSchema: GetStoreInput,
+      // outputSchema omitted: errors return plain text
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -204,6 +280,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(formatted, null, 2) }],
+          structuredContent: formatted,
         };
       } catch (error) {
         return handleToolError(error);
@@ -217,6 +294,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
     {
       description: "Add items to the user's cart at any Kroger-owned store. Requires user authentication.",
       inputSchema: AddToCartInput,
+      // outputSchema omitted: auth errors return plain text
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -229,10 +307,14 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
         await kroger.addToCart({ items });
 
         const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
+        const result = {
+          success: true,
+          itemCount,
+          message: `Successfully added ${itemCount} item(s) to your Kroger cart.`,
+        };
         return {
-          content: [
-            { type: 'text' as const, text: `Successfully added ${itemCount} item(s) to your Kroger cart.` },
-          ],
+          content: [{ type: 'text' as const, text: result.message }],
+          structuredContent: result,
         };
       } catch (error) {
         return handleToolError(error);
@@ -246,6 +328,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
     {
       description: "Get the authenticated user's profile. Requires user authentication.",
       inputSchema: GetProfileInput,
+      // outputSchema omitted: auth errors return plain text
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -258,6 +341,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
         const profile = await kroger.getProfile();
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(profile, null, 2) }],
+          structuredContent: { ...profile } as Record<string, unknown>,
         };
       } catch (error) {
         return handleToolError(error);

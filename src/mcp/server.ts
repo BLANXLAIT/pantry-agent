@@ -13,7 +13,7 @@ export function createMcpServer(kroger: KrogerService): McpServer {
   const server = new McpServer(
     {
       name: 'pantry-agent',
-      version: '0.3.0',
+      version: '0.3.1',
     },
     {
       instructions: `Pantry Agent provides grocery shopping tools for all Kroger-owned stores (Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter, Food 4 Less, Fry's, Smith's, QFC, and more).

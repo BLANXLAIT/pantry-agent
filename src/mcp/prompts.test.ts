@@ -2,32 +2,33 @@
  * Tests for MCP Prompts
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getPromptsHandler, getPromptHandler } from './prompts.js';
-import type { GetPromptRequest } from '@modelcontextprotocol/sdk/types.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { createTestClient } from './test-helpers.js';
 
 describe('MCP Prompts', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  let client: Client;
+
+  beforeEach(async () => {
+    const ctx = await createTestClient();
+    client = ctx.client;
   });
 
-  describe('getPromptsHandler', () => {
-    it('should return list of prompts', async () => {
-      const handler = getPromptsHandler();
-      const result = await handler({} as any);
+  afterEach(async () => {
+    await client.close();
+  });
 
-      expect(result.prompts).toBeDefined();
-      expect(result.prompts.length).toBeGreaterThan(0);
+  describe('Prompt Registration', () => {
+    it('should register grocery-assistant prompt', async () => {
+      const result = await client.listPrompts();
 
-      // Verify grocery-assistant prompt exists
       const groceryPrompt = result.prompts.find((p) => p.name === 'grocery-assistant');
       expect(groceryPrompt).toBeDefined();
       expect(groceryPrompt?.description).toContain('grocery shopping');
     });
 
     it('should have proper arguments for grocery-assistant prompt', async () => {
-      const handler = getPromptsHandler();
-      const result = await handler({} as any);
+      const result = await client.listPrompts();
 
       const groceryPrompt = result.prompts.find((p) => p.name === 'grocery-assistant');
       expect(groceryPrompt?.arguments).toBeDefined();
@@ -42,100 +43,68 @@ describe('MCP Prompts', () => {
     });
   });
 
-  describe('getPromptHandler', () => {
-    describe('grocery-assistant', () => {
-      it('should return prompt without context when no arguments provided', async () => {
-        const handler = getPromptHandler();
-        const request: GetPromptRequest = {
-          method: 'prompts/get',
-          params: {
-            name: 'grocery-assistant',
-          },
-        };
-
-        const result = await handler(request);
-
-        expect(result.messages).toHaveLength(1);
-        expect(result.messages[0].role).toBe('user');
-        expect(result.messages[0].content.type).toBe('text');
-
-        const text = (result.messages[0].content as any).text;
-        expect(text).toContain('grocery shopping assistant');
-        expect(text).toContain('find_stores');
-        expect(text).toContain('search_products');
-        expect(text).toContain('add_to_cart');
-        expect(text).not.toContain('shopping at');
+  describe('Prompt Execution', () => {
+    it('should return prompt without context when no arguments provided', async () => {
+      const result = await client.getPrompt({
+        name: 'grocery-assistant',
+        arguments: {},
       });
 
-      it('should include store context when storeName and locationId provided', async () => {
-        const handler = getPromptHandler();
-        const request: GetPromptRequest = {
-          method: 'prompts/get',
-          params: {
-            name: 'grocery-assistant',
-            arguments: {
-              storeName: 'Kroger on Main St',
-              locationId: '01400943',
-            },
-          },
-        };
+      expect(result.messages).toHaveLength(1);
+      expect(result.messages[0].role).toBe('user');
 
-        const result = await handler(request);
-
-        const text = (result.messages[0].content as any).text;
-        expect(text).toContain('shopping at Kroger on Main St');
-        expect(text).toContain('location ID: 01400943');
-      });
-
-      it('should suggest finding store when only storeName provided', async () => {
-        const handler = getPromptHandler();
-        const request: GetPromptRequest = {
-          method: 'prompts/get',
-          params: {
-            name: 'grocery-assistant',
-            arguments: {
-              storeName: 'Kroger',
-            },
-          },
-        };
-
-        const result = await handler(request);
-
-        const text = (result.messages[0].content as any).text;
-        expect(text).toContain('wants to shop at Kroger');
-        expect(text).toContain('find_stores to get the location ID');
-      });
-
-      it('should handle empty arguments object', async () => {
-        const handler = getPromptHandler();
-        const request: GetPromptRequest = {
-          method: 'prompts/get',
-          params: {
-            name: 'grocery-assistant',
-            arguments: {},
-          },
-        };
-
-        const result = await handler(request);
-
-        const text = (result.messages[0].content as any).text;
-        expect(text).toContain('grocery shopping assistant');
-        expect(text).not.toContain('shopping at');
-      });
+      const text = (result.messages[0].content as any).text;
+      expect(text).toContain('grocery shopping assistant');
+      expect(text).toContain('find_stores');
+      expect(text).toContain('search_products');
+      expect(text).toContain('add_to_cart');
+      expect(text).not.toContain('shopping at');
     });
 
-    describe('unknown prompt', () => {
-      it('should throw error for unknown prompt name', async () => {
-        const handler = getPromptHandler();
-        const request: GetPromptRequest = {
-          method: 'prompts/get',
-          params: {
-            name: 'unknown-prompt',
-          },
-        };
-
-        await expect(handler(request)).rejects.toThrow('Unknown prompt: unknown-prompt');
+    it('should include store context when storeName and locationId provided', async () => {
+      const result = await client.getPrompt({
+        name: 'grocery-assistant',
+        arguments: {
+          storeName: 'Kroger on Main St',
+          locationId: '01400943',
+        },
       });
+
+      const text = (result.messages[0].content as any).text;
+      expect(text).toContain('shopping at Kroger on Main St');
+      expect(text).toContain('location ID: 01400943');
+    });
+
+    it('should suggest finding store when only storeName provided', async () => {
+      const result = await client.getPrompt({
+        name: 'grocery-assistant',
+        arguments: {
+          storeName: 'Kroger',
+        },
+      });
+
+      const text = (result.messages[0].content as any).text;
+      expect(text).toContain('wants to shop at Kroger');
+      expect(text).toContain('find_stores to get the location ID');
+    });
+
+    it('should handle empty arguments object', async () => {
+      const result = await client.getPrompt({
+        name: 'grocery-assistant',
+        arguments: {},
+      });
+
+      const text = (result.messages[0].content as any).text;
+      expect(text).toContain('grocery shopping assistant');
+      expect(text).not.toContain('shopping at');
+    });
+  });
+
+  describe('Unknown Prompt', () => {
+    it('should throw error for unknown prompt name', async () => {
+      await expect(
+        client.getPrompt({ name: 'unknown-prompt' })
+      ).rejects.toThrow();
     });
   });
 });

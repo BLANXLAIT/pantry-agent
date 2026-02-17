@@ -2,47 +2,27 @@
  * MCP Server Setup
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
 import type { KrogerService } from '../services/kroger.service.js';
-import { getToolsHandler, callToolHandler } from './tools.js';
-import { getResourcesHandler, readResourceHandler } from './resources.js';
-import { getPromptsHandler, getPromptHandler } from './prompts.js';
+import { registerTools } from './tools.js';
+import { registerResources } from './resources.js';
+import { registerPrompts } from './prompts.js';
 
-export function createMcpServer(kroger: KrogerService): Server {
-  const server = new Server(
-    {
-      name: 'pantry-agent',
-      version: '0.2.0',
-    },
-    {
-      capabilities: {
-        tools: {},
-        resources: {},
-        prompts: {},
-      },
-    }
-  );
+export function createMcpServer(kroger: KrogerService): McpServer {
+  const server = new McpServer({
+    name: 'pantry-agent',
+    version: '0.2.0',
+  });
 
-  // Register tool handlers
-  server.setRequestHandler(ListToolsRequestSchema, getToolsHandler());
-  server.setRequestHandler(CallToolRequestSchema, callToolHandler(kroger));
+  // Register tools
+  registerTools(server, kroger);
 
-  // Register resource handlers
-  server.setRequestHandler(ListResourcesRequestSchema, getResourcesHandler());
-  server.setRequestHandler(ReadResourceRequestSchema, readResourceHandler(kroger));
+  // Register resources
+  registerResources(server, kroger);
 
-  // Register prompt handlers
-  server.setRequestHandler(ListPromptsRequestSchema, getPromptsHandler());
-  server.setRequestHandler(GetPromptRequestSchema, getPromptHandler());
+  // Register prompts
+  registerPrompts(server);
 
   return server;
 }

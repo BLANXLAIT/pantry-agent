@@ -2,39 +2,29 @@
  * Tests for MCP Resources
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createMcpServer } from './server.js';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { KrogerService } from '../services/kroger.service.js';
-
-const createMockKrogerService = () => ({
-  isUserAuthenticated: vi.fn(),
-  searchProducts: vi.fn(),
-  getProduct: vi.fn(),
-  findStores: vi.fn(),
-  getStore: vi.fn(),
-  addToCart: vi.fn(),
-  getProfile: vi.fn(),
-  getAuthService: vi.fn(),
-  getUserScope: vi.fn(),
-});
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { createTestClient, createMockKrogerService } from './test-helpers.js';
 
 describe('MCP Resources', () => {
+  let client: Client;
   let mockKroger: ReturnType<typeof createMockKrogerService>;
-  let server: McpServer;
 
-  beforeEach(() => {
-    mockKroger = createMockKrogerService();
-    server = createMcpServer(mockKroger as unknown as KrogerService);
-    vi.clearAllMocks();
+  beforeEach(async () => {
+    const ctx = await createTestClient();
+    client = ctx.client;
+    mockKroger = ctx.mockKroger;
+  });
+
+  afterEach(async () => {
+    await client.close();
   });
 
   describe('Resource Registration', () => {
     it('should register auth status resource', async () => {
-      const listResourcesHandler = (server.server as any)._requestHandlers.get('resources/list');
-      const result = await listResourcesHandler({ method: 'resources/list', params: {} });
+      const result = await client.listResources();
 
-      const authResource = result.resources.find((r: any) => r.uri === 'kroger://auth/status');
+      const authResource = result.resources.find((r) => r.uri === 'kroger://auth/status');
       expect(authResource).toBeDefined();
       expect(authResource?.name).toBe('Authentication Status');
       expect(authResource?.mimeType).toBe('application/json');
@@ -45,13 +35,7 @@ describe('MCP Resources', () => {
     it('should return authenticated status when user is authenticated', async () => {
       mockKroger.isUserAuthenticated.mockResolvedValueOnce(true);
 
-      const readResourceHandler = (server.server as any)._requestHandlers.get('resources/read');
-      const result = await readResourceHandler({
-        method: 'resources/read',
-        params: {
-          uri: 'kroger://auth/status',
-        },
-      });
+      const result = await client.readResource({ uri: 'kroger://auth/status' });
 
       expect(mockKroger.isUserAuthenticated).toHaveBeenCalled();
       expect(result.contents).toHaveLength(1);
@@ -66,13 +50,7 @@ describe('MCP Resources', () => {
     it('should return not authenticated status when user is not authenticated', async () => {
       mockKroger.isUserAuthenticated.mockResolvedValueOnce(false);
 
-      const readResourceHandler = (server.server as any)._requestHandlers.get('resources/read');
-      const result = await readResourceHandler({
-        method: 'resources/read',
-        params: {
-          uri: 'kroger://auth/status',
-        },
-      });
+      const result = await client.readResource({ uri: 'kroger://auth/status' });
 
       const parsed = JSON.parse(result.contents[0].text as string);
       expect(parsed.authenticated).toBe(false);
@@ -83,16 +61,9 @@ describe('MCP Resources', () => {
 
   describe('Unknown Resource', () => {
     it('should throw error for unknown resource URI', async () => {
-      const readResourceHandler = (server.server as any)._requestHandlers.get('resources/read');
-      
       await expect(
-        readResourceHandler({
-          method: 'resources/read',
-          params: {
-            uri: 'kroger://unknown/resource',
-          },
-        })
-      ).rejects.toThrow('kroger://unknown/resource');
+        client.readResource({ uri: 'kroger://unknown/resource' })
+      ).rejects.toThrow();
     });
   });
 });

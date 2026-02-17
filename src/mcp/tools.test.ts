@@ -2,47 +2,28 @@
  * Tests for MCP Tools
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createMcpServer } from './server.js';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { KrogerService } from '../services/kroger.service.js';
-
-const createMockKrogerService = () => ({
-  searchProducts: vi.fn(),
-  getProduct: vi.fn(),
-  findStores: vi.fn(),
-  getStore: vi.fn(),
-  addToCart: vi.fn(),
-  getProfile: vi.fn(),
-  isUserAuthenticated: vi.fn(),
-  getAuthService: vi.fn(),
-  getUserScope: vi.fn(),
-});
-
-// Helper to call tools through the MCP server
-async function callTool(server: McpServer, name: string, args: any) {
-  const callToolHandler = (server.server as any)._requestHandlers.get('tools/call');
-  return await callToolHandler({
-    method: 'tools/call',
-    params: { name, arguments: args },
-  });
-}
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { createTestClient, createMockKrogerService } from './test-helpers.js';
 
 describe('MCP Tools', () => {
+  let client: Client;
   let mockKroger: ReturnType<typeof createMockKrogerService>;
-  let server: McpServer;
 
-  beforeEach(() => {
-    mockKroger = createMockKrogerService();
-    server = createMcpServer(mockKroger as unknown as KrogerService);
-    vi.clearAllMocks();
+  beforeEach(async () => {
+    const ctx = await createTestClient();
+    client = ctx.client;
+    mockKroger = ctx.mockKroger;
+  });
+
+  afterEach(async () => {
+    await client.close();
   });
 
   describe('Tool Registration', () => {
     it('should register all expected tools', async () => {
-      const listToolsHandler = (server.server as any)._requestHandlers.get('tools/list');
-      const result = await listToolsHandler({ method: 'tools/list', params: {} });
-      const toolNames = result.tools.map((t: any) => t.name);
+      const result = await client.listTools();
+      const toolNames = result.tools.map((t) => t.name);
 
       expect(toolNames).toContain('search_products');
       expect(toolNames).toContain('get_product');
@@ -53,20 +34,18 @@ describe('MCP Tools', () => {
     });
 
     it('should have proper annotations for search_products', async () => {
-      const listToolsHandler = (server.server as any)._requestHandlers.get('tools/list');
-      const result = await listToolsHandler({ method: 'tools/list', params: {} });
-      const searchTool = result.tools.find((t: any) => t.name === 'search_products');
-      
+      const result = await client.listTools();
+      const searchTool = result.tools.find((t) => t.name === 'search_products');
+
       expect(searchTool).toBeDefined();
       expect(searchTool?.annotations?.readOnlyHint).toBe(true);
       expect(searchTool?.annotations?.idempotentHint).toBe(true);
     });
 
     it('should have proper annotations for add_to_cart', async () => {
-      const listToolsHandler = (server.server as any)._requestHandlers.get('tools/list');
-      const result = await listToolsHandler({ method: 'tools/list', params: {} });
-      const cartTool = result.tools.find((t: any) => t.name === 'add_to_cart');
-      
+      const result = await client.listTools();
+      const cartTool = result.tools.find((t) => t.name === 'add_to_cart');
+
       expect(cartTool).toBeDefined();
       expect(cartTool?.annotations?.readOnlyHint).toBe(false);
       expect(cartTool?.annotations?.idempotentHint).toBe(false);
@@ -95,9 +74,9 @@ describe('MCP Tools', () => {
 
       mockKroger.searchProducts.mockResolvedValueOnce(mockProducts);
 
-      const result = await callTool(server, 'search_products', {
-        term: 'milk',
-        locationId: '01400943',
+      const result = await client.callTool({
+        name: 'search_products',
+        arguments: { term: 'milk', locationId: '01400943' },
       });
 
       expect(mockKroger.searchProducts).toHaveBeenCalledWith({
@@ -107,9 +86,8 @@ describe('MCP Tools', () => {
       });
 
       expect(result.content).toHaveLength(1);
-      expect(result.content[0].type).toBe('text');
-
-      const parsed = JSON.parse((result.content[0] as any).text);
+      const text = (result.content[0] as any).text;
+      const parsed = JSON.parse(text);
       expect(parsed.count).toBe(2);
       expect(parsed.has_more).toBe(false);
       expect(parsed.products).toHaveLength(2);
@@ -123,9 +101,9 @@ describe('MCP Tools', () => {
     it('should return message when no products found', async () => {
       mockKroger.searchProducts.mockResolvedValueOnce([]);
 
-      const result = await callTool(server, 'search_products', {
-        term: 'nonexistent',
-        locationId: '01400943',
+      const result = await client.callTool({
+        name: 'search_products',
+        arguments: { term: 'nonexistent', locationId: '01400943' },
       });
 
       expect((result.content[0] as any).text).toContain('No products found');
@@ -134,10 +112,9 @@ describe('MCP Tools', () => {
     it('should use custom limit when provided', async () => {
       mockKroger.searchProducts.mockResolvedValueOnce([]);
 
-      await callTool(server, 'search_products', {
-        term: 'eggs',
-        locationId: '01400943',
-        limit: 25,
+      await client.callTool({
+        name: 'search_products',
+        arguments: { term: 'eggs', locationId: '01400943', limit: 25 },
       });
 
       expect(mockKroger.searchProducts).toHaveBeenCalledWith({
@@ -169,9 +146,9 @@ describe('MCP Tools', () => {
 
       mockKroger.getProduct.mockResolvedValueOnce(mockProduct);
 
-      const result = await callTool(server, 'get_product', {
-        productId: '001',
-        locationId: '01400943',
+      const result = await client.callTool({
+        name: 'get_product',
+        arguments: { productId: '001', locationId: '01400943' },
       });
 
       expect(mockKroger.getProduct).toHaveBeenCalledWith('001', '01400943');
@@ -215,7 +192,10 @@ describe('MCP Tools', () => {
 
       mockKroger.findStores.mockResolvedValueOnce(mockStores);
 
-      const result = await callTool(server, 'find_stores', { zipCode: '45202' });
+      const result = await client.callTool({
+        name: 'find_stores',
+        arguments: { zipCode: '45202' },
+      });
 
       expect(mockKroger.findStores).toHaveBeenCalledWith({ zipCode: '45202', limit: 5 });
 
@@ -231,7 +211,10 @@ describe('MCP Tools', () => {
     it('should return message when no stores found', async () => {
       mockKroger.findStores.mockResolvedValueOnce([]);
 
-      const result = await callTool(server, 'find_stores', { zipCode: '99999' });
+      const result = await client.callTool({
+        name: 'find_stores',
+        arguments: { zipCode: '99999' },
+      });
 
       expect((result.content[0] as any).text).toContain('No stores found');
     });
@@ -261,7 +244,10 @@ describe('MCP Tools', () => {
 
       mockKroger.getStore.mockResolvedValueOnce(mockStore);
 
-      const result = await callTool(server, 'get_store', { locationId: '01400943' });
+      const result = await client.callTool({
+        name: 'get_store',
+        arguments: { locationId: '01400943' },
+      });
 
       expect(mockKroger.getStore).toHaveBeenCalledWith('01400943');
 
@@ -275,11 +261,14 @@ describe('MCP Tools', () => {
     it('should add items to cart and return success message', async () => {
       mockKroger.addToCart.mockResolvedValueOnce(undefined);
 
-      const result = await callTool(server, 'add_to_cart', {
-        items: [
-          { upc: '0001111041700', quantity: 2 },
-          { upc: '0001111041701', quantity: 1 },
-        ],
+      const result = await client.callTool({
+        name: 'add_to_cart',
+        arguments: {
+          items: [
+            { upc: '0001111041700', quantity: 2 },
+            { upc: '0001111041701', quantity: 1 },
+          ],
+        },
       });
 
       expect(mockKroger.addToCart).toHaveBeenCalledWith({
@@ -297,12 +286,12 @@ describe('MCP Tools', () => {
         new Error('AUTH_REQUIRED: A browser window has been opened for Kroger login.')
       );
 
-      const result = await callTool(server, 'add_to_cart', {
-        items: [{ upc: '0001111041700', quantity: 1 }],
+      const result = await client.callTool({
+        name: 'add_to_cart',
+        arguments: { items: [{ upc: '0001111041700', quantity: 1 }] },
       });
 
-      // Should NOT be an error - it's informational
-      expect((result as any).isError).toBeUndefined();
+      expect(result.isError).not.toBe(true);
       expect((result.content[0] as any).text).toContain('Opening browser');
       expect((result.content[0] as any).text).toContain('try your request again');
     });
@@ -313,7 +302,10 @@ describe('MCP Tools', () => {
       const mockProfile = { id: 'user-123-abc' };
       mockKroger.getProfile.mockResolvedValueOnce(mockProfile);
 
-      const result = await callTool(server, 'get_profile', {});
+      const result = await client.callTool({
+        name: 'get_profile',
+        arguments: {},
+      });
 
       expect(mockKroger.getProfile).toHaveBeenCalled();
 
@@ -326,10 +318,12 @@ describe('MCP Tools', () => {
         new Error('AUTH_REQUIRED: A browser window has been opened for Kroger login.')
       );
 
-      const result = await callTool(server, 'get_profile', {});
+      const result = await client.callTool({
+        name: 'get_profile',
+        arguments: {},
+      });
 
-      // Should NOT be an error - it's informational
-      expect((result as any).isError).toBeUndefined();
+      expect(result.isError).not.toBe(true);
       expect((result.content[0] as any).text).toContain('Opening browser');
     });
   });
@@ -338,12 +332,12 @@ describe('MCP Tools', () => {
     it('should handle generic errors', async () => {
       mockKroger.searchProducts.mockRejectedValueOnce(new Error('Network error'));
 
-      const result = await callTool(server, 'search_products', {
-        term: 'milk',
-        locationId: '01400943',
+      const result = await client.callTool({
+        name: 'search_products',
+        arguments: { term: 'milk', locationId: '01400943' },
       });
 
-      expect((result as any).isError).toBe(true);
+      expect(result.isError).toBe(true);
       expect((result.content[0] as any).text).toContain('Error: Network error');
     });
   });

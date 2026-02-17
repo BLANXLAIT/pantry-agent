@@ -1,20 +1,15 @@
 /**
  * Integration Tests
  *
- * These tests demonstrate how to test the full flow from MCP tools
- * through the service layer to the API client. They use mocked fetch
- * but exercise the real integration between components.
- *
- * To run actual integration tests against the Kroger API:
- * 1. Set KROGER_CLIENT_ID and KROGER_CLIENT_SECRET environment variables
- * 2. Remove the fetch mock
- * 3. Mark tests with .skip that require user authentication
+ * These tests exercise the full flow from MCP client through the server,
+ * service layer, and API client using mocked fetch.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { KrogerService } from './services/kroger.service.js';
 import { createMcpServer } from './mcp/server.js';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 // Mock global fetch for all tests
 const mockFetch = vi.fn();
@@ -32,20 +27,11 @@ vi.mock('node:os', () => ({
   homedir: vi.fn(() => '/mock/home'),
 }));
 
-// Helper to call tools through the MCP server
-async function callTool(server: McpServer, name: string, args: any) {
-  const callToolHandler = (server.server as any)._requestHandlers.get('tools/call');
-  return await callToolHandler({
-    method: 'tools/call',
-    params: { name, arguments: args },
-  });
-}
-
 describe('Integration Tests', () => {
+  let client: Client;
   let krogerService: KrogerService;
-  let server: McpServer;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
 
     krogerService = new KrogerService({
@@ -54,16 +40,19 @@ describe('Integration Tests', () => {
       environment: 'certification',
     });
 
-    server = createMcpServer(krogerService);
+    const server = createMcpServer(krogerService);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: 'test-client', version: '1.0.0' });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await client.close();
     vi.clearAllMocks();
   });
 
   describe('Product Search Flow', () => {
     it('should search products through MCP tool to API', async () => {
-      // Mock client credentials token response
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -74,7 +63,6 @@ describe('Integration Tests', () => {
           }),
       });
 
-      // Mock product search response
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -100,9 +88,9 @@ describe('Integration Tests', () => {
           }),
       });
 
-      const result = await callTool(server, 'search_products', {
-        term: 'milk',
-        locationId: '01400943',
+      const result = await client.callTool({
+        name: 'search_products',
+        arguments: { term: 'milk', locationId: '01400943' },
       });
 
       // Verify token was fetched first
@@ -139,7 +127,6 @@ describe('Integration Tests', () => {
     });
 
     it('should cache app token for subsequent requests', async () => {
-      // First request - token fetch + product search
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
@@ -165,7 +152,6 @@ describe('Integration Tests', () => {
               meta: { pagination: { start: 0, limit: 10, total: 1 } },
             }),
         })
-        // Second request - only product search (no token fetch)
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
@@ -182,16 +168,14 @@ describe('Integration Tests', () => {
             }),
         });
 
-      // First request
-      await callTool(server, 'search_products', {
-        term: 'test1',
-        locationId: '01400943',
+      await client.callTool({
+        name: 'search_products',
+        arguments: { term: 'test1', locationId: '01400943' },
       });
 
-      // Second request should reuse token
-      await callTool(server, 'search_products', {
-        term: 'test2',
-        locationId: '01400943',
+      await client.callTool({
+        name: 'search_products',
+        arguments: { term: 'test2', locationId: '01400943' },
       });
 
       // Verify token was only fetched once
@@ -212,7 +196,6 @@ describe('Integration Tests', () => {
 
   describe('Store Lookup Flow', () => {
     it('should find stores through MCP tool to API', async () => {
-      // Mock client credentials token response
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -223,7 +206,6 @@ describe('Integration Tests', () => {
           }),
       });
 
-      // Mock store search response
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -247,9 +229,11 @@ describe('Integration Tests', () => {
           }),
       });
 
-      const result = await callTool(server, 'find_stores', { zipCode: '45202' });
+      const result = await client.callTool({
+        name: 'find_stores',
+        arguments: { zipCode: '45202' },
+      });
 
-      // Verify API calls
       expect(mockFetch).toHaveBeenNthCalledWith(
         1,
         expect.stringContaining('/connect/oauth2/token'),
@@ -266,7 +250,6 @@ describe('Integration Tests', () => {
         })
       );
 
-      // Verify result format
       const parsed = JSON.parse((result.content[0] as any).text);
       expect(parsed.stores[0].locationId).toBe('01400943');
       expect(parsed.stores[0].address).toBe('123 Main St, Cincinnati, OH 45202');
@@ -275,7 +258,6 @@ describe('Integration Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle API errors gracefully', async () => {
-      // Mock token fetch
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -286,31 +268,30 @@ describe('Integration Tests', () => {
           }),
       });
 
-      // Mock API error
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
         json: () => Promise.resolve({ error: 'Internal Server Error' }),
       });
 
-      const result = await callTool(server, 'search_products', {
-        term: 'milk',
-        locationId: '01400943',
+      const result = await client.callTool({
+        name: 'search_products',
+        arguments: { term: 'milk', locationId: '01400943' },
       });
 
-      expect((result as any).isError).toBe(true);
+      expect(result.isError).toBe(true);
       expect((result.content[0] as any).text).toContain('Error');
     });
 
     it('should handle network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network failure'));
 
-      const result = await callTool(server, 'search_products', {
-        term: 'milk',
-        locationId: '01400943',
+      const result = await client.callTool({
+        name: 'search_products',
+        arguments: { term: 'milk', locationId: '01400943' },
       });
 
-      expect((result as any).isError).toBe(true);
+      expect(result.isError).toBe(true);
       expect((result.content[0] as any).text).toContain('Error');
     });
   });

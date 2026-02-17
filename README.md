@@ -14,6 +14,12 @@ Works with **all Kroger-owned banners**: Kroger, Ralphs, Fred Meyer, King Sooper
 
 ## Installation
 
+### Claude Code
+
+```bash
+claude mcp add pantry-agent -- npx -y @blanxlait/pantry-agent
+```
+
 ### Claude Desktop
 
 Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):

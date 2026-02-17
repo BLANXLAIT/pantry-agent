@@ -1,6 +1,6 @@
 {
   "name": "@blanxlait/pantry-agent",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "MCP server for grocery shopping at Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter, and other Kroger-owned stores - search products, find stores, and manage your cart with AI",
   "type": "module",
   "main": "dist/index.js",

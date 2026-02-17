@@ -24,7 +24,8 @@ Workflow:
 3. search_products and get_product work without authentication.
 4. add_to_cart and get_profile require Kroger login — if auth is needed, a browser window opens automatically. Tell the user to complete login and retry.
 5. Always confirm with the user before adding items to their cart.
-6. Show prices and stock availability when displaying products.`,
+6. Show prices and stock availability when displaying products.
+7. The cart is account-level, not store-specific. Items added via any store go to the user's single Kroger cart. The user picks their fulfillment store separately on kroger.com or the app.`,
     },
   );
 

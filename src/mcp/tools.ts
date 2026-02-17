@@ -292,7 +292,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
   server.registerTool(
     'add_to_cart',
     {
-      description: "Add items to the user's cart at any Kroger-owned store. Requires user authentication.",
+      description: "Add items to the user's Kroger cart. Requires user authentication. Note: the cart is account-level, not store-specific — items go to the user's single cart regardless of which store was searched.",
       inputSchema: AddToCartInput,
       // outputSchema omitted: auth errors return plain text
       annotations: {

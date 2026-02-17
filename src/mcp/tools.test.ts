@@ -4,15 +4,17 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { createTestClient, createMockKrogerService } from './test-helpers.js';
+import { createTestClient, createMockKrogerService, type ToolResult } from './test-helpers.js';
 
 describe('MCP Tools', () => {
   let client: Client;
+  let callTool: (params: { name: string; arguments: Record<string, unknown> }) => Promise<ToolResult>;
   let mockKroger: ReturnType<typeof createMockKrogerService>;
 
   beforeEach(async () => {
     const ctx = await createTestClient();
     client = ctx.client;
+    callTool = ctx.callTool;
     mockKroger = ctx.mockKroger;
   });
 
@@ -74,7 +76,7 @@ describe('MCP Tools', () => {
 
       mockKroger.searchProducts.mockResolvedValueOnce(mockProducts);
 
-      const result = await client.callTool({
+      const result = await callTool({
         name: 'search_products',
         arguments: { term: 'milk', locationId: '01400943' },
       });
@@ -86,8 +88,7 @@ describe('MCP Tools', () => {
       });
 
       expect(result.content).toHaveLength(1);
-      const text = (result.content[0] as any).text;
-      const parsed = JSON.parse(text);
+      const parsed = JSON.parse(result.content[0].text);
       expect(parsed.count).toBe(2);
       expect(parsed.has_more).toBe(false);
       expect(parsed.products).toHaveLength(2);
@@ -101,18 +102,18 @@ describe('MCP Tools', () => {
     it('should return message when no products found', async () => {
       mockKroger.searchProducts.mockResolvedValueOnce([]);
 
-      const result = await client.callTool({
+      const result = await callTool({
         name: 'search_products',
         arguments: { term: 'nonexistent', locationId: '01400943' },
       });
 
-      expect((result.content[0] as any).text).toContain('No products found');
+      expect(result.content[0].text).toContain('No products found');
     });
 
     it('should use custom limit when provided', async () => {
       mockKroger.searchProducts.mockResolvedValueOnce([]);
 
-      await client.callTool({
+      await callTool({
         name: 'search_products',
         arguments: { term: 'eggs', locationId: '01400943', limit: 25 },
       });
@@ -146,14 +147,14 @@ describe('MCP Tools', () => {
 
       mockKroger.getProduct.mockResolvedValueOnce(mockProduct);
 
-      const result = await client.callTool({
+      const result = await callTool({
         name: 'get_product',
         arguments: { productId: '001', locationId: '01400943' },
       });
 
       expect(mockKroger.getProduct).toHaveBeenCalledWith('001', '01400943');
 
-      const parsed = JSON.parse((result.content[0] as any).text);
+      const parsed = JSON.parse(result.content[0].text);
       expect(parsed.productId).toBe('001');
       expect(parsed.size).toBe('1 gal');
       expect(parsed.price.regular).toBe(3.99);
@@ -169,37 +170,24 @@ describe('MCP Tools', () => {
           locationId: '01400943',
           name: 'Kroger',
           chain: 'KROGER',
-          address: {
-            addressLine1: '123 Main St',
-            city: 'Cincinnati',
-            state: 'OH',
-            zipCode: '45202',
-          },
+          address: { addressLine1: '123 Main St', city: 'Cincinnati', state: 'OH', zipCode: '45202' },
           phone: '513-555-1234',
         },
         {
           locationId: '01400944',
           name: 'Kroger Marketplace',
           chain: 'KROGER',
-          address: {
-            addressLine1: '456 Oak Ave',
-            city: 'Cincinnati',
-            state: 'OH',
-            zipCode: '45203',
-          },
+          address: { addressLine1: '456 Oak Ave', city: 'Cincinnati', state: 'OH', zipCode: '45203' },
         },
       ];
 
       mockKroger.findStores.mockResolvedValueOnce(mockStores);
 
-      const result = await client.callTool({
-        name: 'find_stores',
-        arguments: { zipCode: '45202' },
-      });
+      const result = await callTool({ name: 'find_stores', arguments: { zipCode: '45202' } });
 
       expect(mockKroger.findStores).toHaveBeenCalledWith({ zipCode: '45202', limit: 5 });
 
-      const parsed = JSON.parse((result.content[0] as any).text);
+      const parsed = JSON.parse(result.content[0].text);
       expect(parsed.count).toBe(2);
       expect(parsed.has_more).toBe(false);
       expect(parsed.stores).toHaveLength(2);
@@ -211,12 +199,9 @@ describe('MCP Tools', () => {
     it('should return message when no stores found', async () => {
       mockKroger.findStores.mockResolvedValueOnce([]);
 
-      const result = await client.callTool({
-        name: 'find_stores',
-        arguments: { zipCode: '99999' },
-      });
+      const result = await callTool({ name: 'find_stores', arguments: { zipCode: '99999' } });
 
-      expect((result.content[0] as any).text).toContain('No stores found');
+      expect(result.content[0].text).toContain('No stores found');
     });
   });
 
@@ -226,12 +211,7 @@ describe('MCP Tools', () => {
         locationId: '01400943',
         name: 'Kroger',
         chain: 'KROGER',
-        address: {
-          addressLine1: '123 Main St',
-          city: 'Cincinnati',
-          state: 'OH',
-          zipCode: '45202',
-        },
+        address: { addressLine1: '123 Main St', city: 'Cincinnati', state: 'OH', zipCode: '45202' },
         phone: '513-555-1234',
         hours: {
           timezone: 'America/New_York',
@@ -244,14 +224,11 @@ describe('MCP Tools', () => {
 
       mockKroger.getStore.mockResolvedValueOnce(mockStore);
 
-      const result = await client.callTool({
-        name: 'get_store',
-        arguments: { locationId: '01400943' },
-      });
+      const result = await callTool({ name: 'get_store', arguments: { locationId: '01400943' } });
 
       expect(mockKroger.getStore).toHaveBeenCalledWith('01400943');
 
-      const parsed = JSON.parse((result.content[0] as any).text);
+      const parsed = JSON.parse(result.content[0].text);
       expect(parsed.locationId).toBe('01400943');
       expect(parsed.departments).toContain('Bakery');
     });
@@ -261,7 +238,7 @@ describe('MCP Tools', () => {
     it('should add items to cart and return success message', async () => {
       mockKroger.addToCart.mockResolvedValueOnce(undefined);
 
-      const result = await client.callTool({
+      const result = await callTool({
         name: 'add_to_cart',
         arguments: {
           items: [
@@ -278,7 +255,7 @@ describe('MCP Tools', () => {
         ],
       });
 
-      expect((result.content[0] as any).text).toContain('Successfully added 3 item(s)');
+      expect(result.content[0].text).toContain('Successfully added 3 item(s)');
     });
 
     it('should return auth prompt when not authenticated', async () => {
@@ -286,14 +263,14 @@ describe('MCP Tools', () => {
         new Error('AUTH_REQUIRED: A browser window has been opened for Kroger login.')
       );
 
-      const result = await client.callTool({
+      const result = await callTool({
         name: 'add_to_cart',
         arguments: { items: [{ upc: '0001111041700', quantity: 1 }] },
       });
 
       expect(result.isError).not.toBe(true);
-      expect((result.content[0] as any).text).toContain('Opening browser');
-      expect((result.content[0] as any).text).toContain('try your request again');
+      expect(result.content[0].text).toContain('Opening browser');
+      expect(result.content[0].text).toContain('try your request again');
     });
   });
 
@@ -302,14 +279,11 @@ describe('MCP Tools', () => {
       const mockProfile = { id: 'user-123-abc' };
       mockKroger.getProfile.mockResolvedValueOnce(mockProfile);
 
-      const result = await client.callTool({
-        name: 'get_profile',
-        arguments: {},
-      });
+      const result = await callTool({ name: 'get_profile', arguments: {} });
 
       expect(mockKroger.getProfile).toHaveBeenCalled();
 
-      const parsed = JSON.parse((result.content[0] as any).text);
+      const parsed = JSON.parse(result.content[0].text);
       expect(parsed.id).toBe('user-123-abc');
     });
 
@@ -318,13 +292,10 @@ describe('MCP Tools', () => {
         new Error('AUTH_REQUIRED: A browser window has been opened for Kroger login.')
       );
 
-      const result = await client.callTool({
-        name: 'get_profile',
-        arguments: {},
-      });
+      const result = await callTool({ name: 'get_profile', arguments: {} });
 
       expect(result.isError).not.toBe(true);
-      expect((result.content[0] as any).text).toContain('Opening browser');
+      expect(result.content[0].text).toContain('Opening browser');
     });
   });
 
@@ -332,13 +303,13 @@ describe('MCP Tools', () => {
     it('should handle generic errors', async () => {
       mockKroger.searchProducts.mockRejectedValueOnce(new Error('Network error'));
 
-      const result = await client.callTool({
+      const result = await callTool({
         name: 'search_products',
         arguments: { term: 'milk', locationId: '01400943' },
       });
 
       expect(result.isError).toBe(true);
-      expect((result.content[0] as any).text).toContain('Error: Network error');
+      expect(result.content[0].text).toContain('Error: Network error');
     });
   });
 });

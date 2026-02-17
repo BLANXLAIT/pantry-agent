@@ -11,6 +11,11 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { KrogerService } from './services/kroger.service.js';
 import { createMcpServer } from './mcp/server.js';
 
+type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
+
+const callTool = (c: Client, params: Parameters<Client['callTool']>[0]) =>
+  c.callTool(params) as Promise<ToolResult>;
+
 // Mock global fetch for all tests
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -88,7 +93,7 @@ describe('Integration Tests', () => {
           }),
       });
 
-      const result = await client.callTool({
+      const result = await callTool(client, {
         name: 'search_products',
         arguments: { term: 'milk', locationId: '01400943' },
       });
@@ -171,12 +176,12 @@ describe('Integration Tests', () => {
       await client.callTool({
         name: 'search_products',
         arguments: { term: 'test1', locationId: '01400943' },
-      });
+      }) as ToolResult;
 
       await client.callTool({
         name: 'search_products',
         arguments: { term: 'test2', locationId: '01400943' },
-      });
+      }) as ToolResult;
 
       // Verify token was only fetched once
       const tokenCalls = mockFetch.mock.calls.filter((call) =>
@@ -229,7 +234,7 @@ describe('Integration Tests', () => {
           }),
       });
 
-      const result = await client.callTool({
+      const result = await callTool(client, {
         name: 'find_stores',
         arguments: { zipCode: '45202' },
       });
@@ -274,25 +279,25 @@ describe('Integration Tests', () => {
         json: () => Promise.resolve({ error: 'Internal Server Error' }),
       });
 
-      const result = await client.callTool({
+      const result = await callTool(client, {
         name: 'search_products',
         arguments: { term: 'milk', locationId: '01400943' },
       });
 
       expect(result.isError).toBe(true);
-      expect((result.content[0] as any).text).toContain('Error');
+      expect(result.content[0].text).toContain('Error');
     });
 
     it('should handle network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network failure'));
 
-      const result = await client.callTool({
+      const result = await callTool(client, {
         name: 'search_products',
         arguments: { term: 'milk', locationId: '01400943' },
       });
 
       expect(result.isError).toBe(true);
-      expect((result.content[0] as any).text).toContain('Error');
+      expect(result.content[0].text).toContain('Error');
     });
   });
 });

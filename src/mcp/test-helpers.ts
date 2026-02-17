@@ -9,6 +9,9 @@ import { vi } from 'vitest';
 import { createMcpServer } from './server.js';
 import type { KrogerService } from '../services/kroger.service.js';
 
+/** Type for callTool results (SDK returns unknown content) */
+export type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
+
 export function createMockKrogerService() {
   return {
     searchProducts: vi.fn(),
@@ -37,5 +40,9 @@ export async function createTestClient(mockKroger?: ReturnType<typeof createMock
 
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
-  return { client, server, mockKroger: mock };
+  /** Typed wrapper for client.callTool */
+  const callTool = (params: Parameters<typeof client.callTool>[0]) =>
+    client.callTool(params) as Promise<ToolResult>;
+
+  return { client, server, mockKroger: mock, callTool };
 }

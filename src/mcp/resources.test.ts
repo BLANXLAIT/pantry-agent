@@ -42,7 +42,7 @@ describe('MCP Resources', () => {
       expect(result.contents[0].uri).toBe('kroger://auth/status');
       expect(result.contents[0].mimeType).toBe('application/json');
 
-      const parsed = JSON.parse(result.contents[0].text as string);
+      const parsed = JSON.parse((result.contents[0] as { text: string }).text);
       expect(parsed.authenticated).toBe(true);
       expect(parsed.message).toContain('authenticated with Kroger');
     });
@@ -52,7 +52,7 @@ describe('MCP Resources', () => {
 
       const result = await client.readResource({ uri: 'kroger://auth/status' });
 
-      const parsed = JSON.parse(result.contents[0].text as string);
+      const parsed = JSON.parse((result.contents[0] as { text: string }).text);
       expect(parsed.authenticated).toBe(false);
       expect(parsed.message).toContain('Not authenticated');
       expect(parsed.message).toContain('pantry-agent auth');

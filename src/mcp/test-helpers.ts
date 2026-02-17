@@ -15,8 +15,10 @@ export type ToolResult = { content: Array<{ type: string; text: string }>; isErr
 export function createMockKrogerService() {
   return {
     searchProducts: vi.fn(),
+    searchProductsPage: vi.fn(),
     getProduct: vi.fn(),
     findStores: vi.fn(),
+    findStoresPage: vi.fn(),
     getStore: vi.fn(),
     addToCart: vi.fn(),
     getProfile: vi.fn(),

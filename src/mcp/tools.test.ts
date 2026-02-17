@@ -74,18 +74,24 @@ describe('MCP Tools', () => {
         },
       ];
 
-      mockKroger.searchProducts.mockResolvedValueOnce(mockProducts);
+      mockKroger.searchProductsPage.mockResolvedValueOnce({
+        data: mockProducts,
+        meta: { pagination: { start: 0, limit: 10, total: 2 } },
+      });
 
       const result = await callTool({
         name: 'search_products',
         arguments: { term: 'milk', locationId: '01400943' },
       });
 
-      expect(mockKroger.searchProducts).toHaveBeenCalledWith({
-        term: 'milk',
-        locationId: '01400943',
-        limit: 10,
-      });
+      expect(mockKroger.searchProductsPage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          term: 'milk',
+          locationId: '01400943',
+          limit: 10,
+          start: 0,
+        })
+      );
 
       expect(result.content).toHaveLength(1);
       const parsed = JSON.parse(result.content[0].text);
@@ -95,12 +101,153 @@ describe('MCP Tools', () => {
       expect(parsed.products[0].productId).toBe('001');
       expect(parsed.products[0].price).toBe(3.99);
       expect(parsed.products[0].inStock).toBe(true);
+      expect(parsed.products[0].stockLevel).toBe('HIGH');
       expect(parsed.products[0].aisle).toBe('Dairy');
-      expect(parsed.products[1].inStock).toBe(false);
+      expect(parsed.products[1].inStock).toBe(true);
+      expect(parsed.products[1].stockLevel).toBe('LOW');
+    });
+
+    it('should return unknown stock when inventory level is missing', async () => {
+      const mockProducts = [
+        {
+          productId: '003',
+          upc: '0001111041702',
+          description: 'Kroger Cola',
+          brand: 'Kroger',
+          items: [{ price: { regular: 2.49 } }],
+        },
+      ];
+
+      mockKroger.searchProductsPage.mockResolvedValueOnce({
+        data: mockProducts,
+        meta: { pagination: { start: 0, limit: 10, total: 1 } },
+      });
+
+      const result = await callTool({
+        name: 'search_products',
+        arguments: { term: 'cola', locationId: '01400943' },
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.products[0].inStock).toBeUndefined();
+      expect(parsed.products[0].stockLevel).toBeUndefined();
+      expect(parsed.products[0].availability).toBe('unknown');
+    });
+
+    it('should default to actionable mode (exclude explicitly out-of-stock)', async () => {
+      const mockProducts = [
+        {
+          productId: 'oos-1',
+          upc: '0001111041709',
+          description: 'Out of Stock Soda',
+          brand: 'BrandA',
+          items: [{ price: { regular: 1.99 }, inventory: { stockLevel: 'TEMPORARILY_OUT_OF_STOCK' } }],
+        },
+        {
+          productId: 'unk-1',
+          upc: '0001111041710',
+          description: 'Unknown Stock Soda',
+          brand: 'BrandB',
+          items: [{ price: { regular: 2.99 } }],
+        },
+      ];
+
+      mockKroger.searchProductsPage.mockResolvedValueOnce({
+        data: mockProducts,
+        meta: { pagination: { start: 0, limit: 10, total: 2 } },
+      });
+
+      const result = await callTool({
+        name: 'search_products',
+        arguments: { term: 'soda', locationId: '01400943' },
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.count).toBe(1);
+      expect(parsed.products[0].productId).toBe('unk-1');
+    });
+
+    it('should support in_stock_only mode', async () => {
+      const mockProducts = [
+        {
+          productId: 'in-1',
+          upc: '0001111041711',
+          description: 'In Stock Soda',
+          brand: 'BrandC',
+          items: [{ price: { regular: 3.99 }, inventory: { stockLevel: 'LOW' } }],
+        },
+        {
+          productId: 'unk-2',
+          upc: '0001111041712',
+          description: 'Unknown Soda',
+          brand: 'BrandD',
+          items: [{ price: { regular: 2.49 } }],
+        },
+      ];
+
+      mockKroger.searchProductsPage.mockResolvedValueOnce({
+        data: mockProducts,
+        meta: { pagination: { start: 0, limit: 10, total: 2 } },
+      });
+
+      const result = await callTool({
+        name: 'search_products',
+        arguments: { term: 'soda', locationId: '01400943', availabilityMode: 'in_stock_only' },
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.count).toBe(1);
+      expect(parsed.products[0].productId).toBe('in-1');
+    });
+
+    it('should scan additional pages when maxPages > 1', async () => {
+      mockKroger.searchProductsPage
+        .mockResolvedValueOnce({
+          data: [
+            {
+              productId: 'p1',
+              upc: '0001111041713',
+              description: 'Page 1 Product',
+              brand: 'BrandE',
+              items: [{ price: { regular: 1.99 }, inventory: { stockLevel: 'TEMPORARILY_OUT_OF_STOCK' } }],
+            },
+          ],
+          meta: { pagination: { start: 0, limit: 1, total: 2 } },
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              productId: 'p2',
+              upc: '0001111041714',
+              description: 'Page 2 Product',
+              brand: 'BrandF',
+              items: [{ price: { regular: 2.99 }, inventory: { stockLevel: 'HIGH' } }],
+            },
+          ],
+          meta: { pagination: { start: 1, limit: 1, total: 2 } },
+        });
+
+      const result = await callTool({
+        name: 'search_products',
+        arguments: {
+          term: 'soda',
+          locationId: '01400943',
+          limit: 1,
+          maxPages: 2,
+          availabilityMode: 'all',
+        },
+      });
+
+      expect(mockKroger.searchProductsPage).toHaveBeenCalledTimes(2);
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.count).toBe(2);
     });
 
     it('should return message when no products found', async () => {
-      mockKroger.searchProducts.mockResolvedValueOnce([]);
+      mockKroger.searchProductsPage.mockResolvedValueOnce({
+        data: [],
+        meta: { pagination: { start: 0, limit: 10, total: 0 } },
+      });
 
       const result = await callTool({
         name: 'search_products',
@@ -111,18 +258,24 @@ describe('MCP Tools', () => {
     });
 
     it('should use custom limit when provided', async () => {
-      mockKroger.searchProducts.mockResolvedValueOnce([]);
+      mockKroger.searchProductsPage.mockResolvedValueOnce({
+        data: [],
+        meta: { pagination: { start: 0, limit: 25, total: 0 } },
+      });
 
       await callTool({
         name: 'search_products',
         arguments: { term: 'eggs', locationId: '01400943', limit: 25 },
       });
 
-      expect(mockKroger.searchProducts).toHaveBeenCalledWith({
-        term: 'eggs',
-        locationId: '01400943',
-        limit: 25,
-      });
+      expect(mockKroger.searchProductsPage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          term: 'eggs',
+          locationId: '01400943',
+          limit: 25,
+          start: 0,
+        })
+      );
     });
   });
 
@@ -181,11 +334,14 @@ describe('MCP Tools', () => {
         },
       ];
 
-      mockKroger.findStores.mockResolvedValueOnce(mockStores);
+      mockKroger.findStoresPage.mockResolvedValueOnce({
+        data: mockStores,
+        meta: { pagination: { start: 0, limit: 5, total: 2 } },
+      });
 
       const result = await callTool({ name: 'find_stores', arguments: { zipCode: '45202' } });
 
-      expect(mockKroger.findStores).toHaveBeenCalledWith({ zipCode: '45202', limit: 5 });
+      expect(mockKroger.findStoresPage).toHaveBeenCalledWith({ zipCode: '45202', limit: 5 });
 
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed.count).toBe(2);
@@ -197,7 +353,10 @@ describe('MCP Tools', () => {
     });
 
     it('should return message when no stores found', async () => {
-      mockKroger.findStores.mockResolvedValueOnce([]);
+      mockKroger.findStoresPage.mockResolvedValueOnce({
+        data: [],
+        meta: { pagination: { start: 0, limit: 5, total: 0 } },
+      });
 
       const result = await callTool({ name: 'find_stores', arguments: { zipCode: '99999' } });
 
@@ -301,7 +460,7 @@ describe('MCP Tools', () => {
 
   describe('error handling', () => {
     it('should handle generic errors', async () => {
-      mockKroger.searchProducts.mockRejectedValueOnce(new Error('Network error'));
+      mockKroger.searchProductsPage.mockRejectedValueOnce(new Error('Network error'));
 
       const result = await callTool({
         name: 'search_products',

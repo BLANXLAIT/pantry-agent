@@ -13,6 +13,7 @@ Test the auth flow:
 5. Verify: `node dist/cli.js auth --status`
 
 Expected output after successful auth:
+
 ```
 ✓ Authenticated with Kroger
   Scope: cart.basic:write profile.compact

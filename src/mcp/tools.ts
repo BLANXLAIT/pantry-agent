@@ -6,12 +6,27 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { KrogerService } from '../services/kroger.service.js';
+import type { Product, ProductItem } from '../api/types.js';
 
 // Zod schemas for input validation
 const SearchProductsInput = {
   term: z.string().min(1).describe('Search term (e.g., "milk", "organic bananas")'),
   locationId: z.string().min(1).describe('Store location ID (get from find_stores)'),
   limit: z.number().int().min(1).max(50).default(10).describe('Maximum results (default: 10, max: 50)'),
+  availabilityMode: z
+    .enum(['actionable', 'in_stock_only', 'all'])
+    .default('actionable')
+    .describe(
+      'Product availability filter: actionable (exclude explicitly out-of-stock), in_stock_only (HIGH/LOW only), or all.'
+    ),
+  maxPages: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .default(1)
+    .describe('How many paginated result pages to scan (default: 1, max: 5).'),
+  brand: z.string().min(1).optional().describe('Optional brand filter (e.g., "Pepsi")'),
 };
 
 const GetProductInput = {
@@ -47,7 +62,9 @@ const ProductSummary = z.object({
   name: z.string().optional(),
   brand: z.string().optional(),
   price: z.number().optional(),
-  inStock: z.boolean(),
+  inStock: z.boolean().optional(),
+  stockLevel: z.string().optional(),
+  availability: z.enum(['in_stock', 'out_of_stock', 'unknown']).optional(),
   aisle: z.string().optional(),
 });
 
@@ -109,6 +126,44 @@ const ProfileOutput = {
   id: z.string(),
 };
 
+function isInStockLevel(stockLevel: string | undefined): boolean {
+  return stockLevel === 'HIGH' || stockLevel === 'LOW';
+}
+
+function stockLevelToInStock(
+  stockLevel: string | undefined
+): boolean | undefined {
+  if (stockLevel === 'HIGH' || stockLevel === 'LOW') return true;
+  if (stockLevel === 'TEMPORARILY_OUT_OF_STOCK') return false;
+  return undefined;
+}
+
+function stockLevelToAvailability(
+  stockLevel: string | undefined
+): 'in_stock' | 'out_of_stock' | 'unknown' {
+  if (stockLevel === 'HIGH' || stockLevel === 'LOW') return 'in_stock';
+  if (stockLevel === 'TEMPORARILY_OUT_OF_STOCK') return 'out_of_stock';
+  return 'unknown';
+}
+
+function pickPreferredItem(product: Product): ProductItem | undefined {
+  const items = product.items ?? [];
+  if (items.length === 0) return undefined;
+
+  return (
+    items.find((item) => isInStockLevel(item.inventory?.stockLevel)) ??
+    items.find((item) => item.inventory?.stockLevel !== undefined) ??
+    items[0]
+  );
+}
+
+function hasMoreFromPagination(
+  pagination: { start: number; limit: number; total: number } | undefined
+): boolean {
+  if (!pagination) return false;
+  return pagination.start + pagination.limit < pagination.total;
+}
+
 export function registerTools(server: McpServer, kroger: KrogerService): void {
   // Register search_products tool
   server.registerTool(
@@ -124,30 +179,65 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
         openWorldHint: true,
       },
     },
-    async ({ term, locationId, limit }) => {
+    async ({ term, locationId, limit, availabilityMode, maxPages, brand }) => {
       try {
-        const products = await kroger.searchProducts({ term, locationId, limit });
+        const seen = new Set<string>();
+        const merged: Product[] = [];
+        let hasMore = false;
 
-        if (products.length === 0) {
+        for (let page = 0; page < maxPages; page++) {
+          const start = page * limit;
+          const response = await kroger.searchProductsPage({
+            term,
+            locationId,
+            limit,
+            start,
+            brand,
+          });
+
+          for (const product of response.data) {
+            if (seen.has(product.productId)) continue;
+            seen.add(product.productId);
+            merged.push(product);
+          }
+
+          hasMore = hasMoreFromPagination(response.meta?.pagination);
+          if (!hasMore) break;
+        }
+
+        if (merged.length === 0) {
           return {
             content: [{ type: 'text' as const, text: `No products found for "${term}" at this store.` }],
           };
         }
 
-        const formatted = products.map((p) => ({
-          productId: p.productId,
-          upc: p.upc,
-          name: p.description,
-          brand: p.brand,
-          price: p.items?.[0]?.price?.regular,
-          inStock: p.items?.[0]?.inventory?.stockLevel === 'HIGH',
-          aisle: p.aisleLocations?.[0]?.description,
-        }));
+        const formattedAll = merged.map((p) => {
+          const selectedItem = pickPreferredItem(p);
+          const stockLevel = selectedItem?.inventory?.stockLevel;
+          const availability = stockLevelToAvailability(stockLevel);
+          return {
+            productId: p.productId,
+            upc: p.upc,
+            name: p.description,
+            brand: p.brand,
+            price: selectedItem?.price?.regular,
+            inStock: stockLevelToInStock(stockLevel),
+            stockLevel,
+            availability,
+            aisle: p.aisleLocations?.[0]?.description,
+          };
+        });
+
+        const filtered = formattedAll.filter((p) => {
+          if (availabilityMode === 'all') return true;
+          if (availabilityMode === 'in_stock_only') return p.availability === 'in_stock';
+          return p.availability !== 'out_of_stock'; // actionable
+        });
 
         const result = {
-          count: formatted.length,
-          has_more: products.length >= limit,
-          products: formatted,
+          count: filtered.length,
+          has_more: hasMore,
+          products: filtered.slice(0, limit),
         };
 
         return {
@@ -178,6 +268,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
     async ({ productId, locationId }) => {
       try {
         const product = await kroger.getProduct(productId, locationId);
+        const selectedItem = pickPreferredItem(product);
 
         const formatted = {
           productId: product.productId,
@@ -185,10 +276,10 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
           name: product.description,
           brand: product.brand,
           categories: product.categories,
-          price: product.items?.[0]?.price,
-          size: product.items?.[0]?.size,
-          inStock: product.items?.[0]?.inventory?.stockLevel,
-          fulfillment: product.items?.[0]?.fulfillment,
+          price: selectedItem?.price,
+          size: selectedItem?.size,
+          inStock: selectedItem?.inventory?.stockLevel,
+          fulfillment: selectedItem?.fulfillment,
           aisle: product.aisleLocations?.[0],
         };
 
@@ -218,7 +309,8 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
     },
     async ({ zipCode, limit }) => {
       try {
-        const stores = await kroger.findStores({ zipCode, limit });
+        const response = await kroger.findStoresPage({ zipCode, limit });
+        const stores = response.data;
 
         if (stores.length === 0) {
           return {
@@ -236,7 +328,7 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
 
         const result = {
           count: formatted.length,
-          has_more: stores.length >= limit,
+          has_more: hasMoreFromPagination(response.meta?.pagination),
           stores: formatted,
         };
 

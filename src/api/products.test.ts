@@ -165,6 +165,18 @@ describe('ProductsAPI', () => {
       );
     });
 
+    it('should handle product details response where data is a single object', async () => {
+      mockClient.request.mockResolvedValueOnce({ data: mockProduct });
+
+      const result = await api.getById('0001111041700', '01400943', 'access-token');
+
+      expect(result).toEqual(mockProduct);
+      expect(mockClient.request).toHaveBeenCalledWith(
+        '/products/0001111041700?filter.locationId=01400943',
+        'access-token'
+      );
+    });
+
     it('should throw error when product not found', async () => {
       mockClient.request.mockResolvedValueOnce({ data: [] });
 

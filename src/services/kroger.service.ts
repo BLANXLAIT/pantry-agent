@@ -11,7 +11,9 @@ import {
   IdentityAPI,
   type KrogerClientConfig,
   type Product,
+  type ProductsResponse,
   type Location,
+  type LocationsResponse,
   type CartItem,
   type Profile,
 } from '../api/index.js';
@@ -27,6 +29,8 @@ export interface SearchProductsOptions {
   term: string;
   locationId: string;
   limit?: number;
+  start?: number;
+  brand?: string;
 }
 
 export interface FindStoresOptions {
@@ -75,16 +79,25 @@ export class KrogerService {
    * Search for products at a store
    */
   async searchProducts(options: SearchProductsOptions): Promise<Product[]> {
+    const response = await this.searchProductsPage(options);
+    return response.data;
+  }
+
+  /**
+   * Search for products with pagination metadata.
+   */
+  async searchProductsPage(options: SearchProductsOptions): Promise<ProductsResponse> {
     const token = await this.auth.getAppToken(SCOPE_PRODUCTS);
-    const response = await this.products.search(
+    return this.products.search(
       {
         term: options.term,
         locationId: options.locationId,
         limit: options.limit ?? 10,
+        start: options.start,
+        brand: options.brand,
       },
       token
     );
-    return response.data;
   }
 
   /**
@@ -99,16 +112,23 @@ export class KrogerService {
    * Find stores near a ZIP code
    */
   async findStores(options: FindStoresOptions): Promise<Location[]> {
+    const response = await this.findStoresPage(options);
+    return response.data;
+  }
+
+  /**
+   * Find stores with pagination metadata.
+   */
+  async findStoresPage(options: FindStoresOptions): Promise<LocationsResponse> {
     // Locations API doesn't require a special scope
     const token = await this.auth.getAppToken('');
-    const response = await this.locations.find(
+    return this.locations.find(
       {
         zipCode: options.zipCode,
         limit: options.limit ?? 5,
       },
       token
     );
-    return response.data;
   }
 
   /**

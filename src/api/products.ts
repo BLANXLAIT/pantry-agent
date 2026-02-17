@@ -44,15 +44,23 @@ export class ProductsAPI {
       'filter.locationId': locationId,
     });
 
-    const response = await this.client.request<ProductsResponse>(
+    const response = await this.client.request<ProductsResponse | { data: Product }>(
       `/products/${productId}?${queryParams.toString()}`,
       accessToken
     );
 
-    if (!response.data || response.data.length === 0) {
+    const data = response.data;
+    if (Array.isArray(data)) {
+      if (data.length === 0) {
+        throw new Error(`Product not found: ${productId}`);
+      }
+      return data[0];
+    }
+
+    if (!data) {
       throw new Error(`Product not found: ${productId}`);
     }
 
-    return response.data[0];
+    return data;
   }
 }

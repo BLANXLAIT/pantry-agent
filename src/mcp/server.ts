@@ -10,10 +10,23 @@ import { registerResources } from './resources.js';
 import { registerPrompts } from './prompts.js';
 
 export function createMcpServer(kroger: KrogerService): McpServer {
-  const server = new McpServer({
-    name: 'pantry-agent',
-    version: '0.3.0',
-  });
+  const server = new McpServer(
+    {
+      name: 'pantry-agent',
+      version: '0.3.0',
+    },
+    {
+      instructions: `Pantry Agent provides grocery shopping tools for all Kroger-owned stores (Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter, Food 4 Less, Fry's, Smith's, QFC, and more).
+
+Workflow:
+1. Find the user's nearest store with find_stores (ask for ZIP code if needed). The response includes the chain name (Kroger, Ralphs, etc.).
+2. Use the locationId from find_stores for all product searches.
+3. search_products and get_product work without authentication.
+4. add_to_cart and get_profile require Kroger login — if auth is needed, a browser window opens automatically. Tell the user to complete login and retry.
+5. Always confirm with the user before adding items to their cart.
+6. Show prices and stock availability when displaying products.`,
+    },
+  );
 
   // Register tools
   registerTools(server, kroger);

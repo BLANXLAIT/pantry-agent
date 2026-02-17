@@ -73,6 +73,10 @@ Once configured, you can ask Claude things like:
 - Tokens are stored locally on your machine
 - No data is sent to third parties
 
+## Disclaimer
+
+Pantry Agent is not affiliated with, endorsed by, or sponsored by The Kroger Co.
+
 ## License
 
 MIT

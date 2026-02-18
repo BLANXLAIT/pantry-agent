@@ -172,12 +172,18 @@ async function main(): Promise<void> {
     case '--help':
     case '-h':
       console.log(`
-Pantry Agent - Kroger MCP Server
+Pantry Agent - Kroger MCP Server & CLI
 
 Usage:
   pantry-agent <command> [options]
 
 Commands:
+  stores <zip> [--limit N]                         Find nearby stores
+  store <locationId>                               Get store details
+  search "<term>" --store <id> [--limit N] [--brand X]  Search products
+  product <id> --store <id>                        Get product details
+  cart add <upc> [--qty N] [--modality PICKUP|DELIVERY]  Add to cart
+
   auth              Authenticate with Kroger
   auth --status     Check authentication status
   auth --logout     Clear stored tokens
@@ -185,9 +191,11 @@ Commands:
   help              Show this help message
 
 Examples:
-  pantry-agent auth           # Log in to Kroger
-  pantry-agent auth --status  # Check if logged in
-  pantry-agent serve          # Start MCP server
+  pantry-agent stores 45174
+  pantry-agent search "milk" --store 01400411
+  pantry-agent product 0001111041660 --store 01400411
+  pantry-agent cart add 0001111041660 --qty 2
+  pantry-agent auth
 `);
       break;
 

@@ -440,19 +440,61 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
       }
     }
   );
+
+  // Register kroger_start_auth tool
+  server.registerTool(
+    'kroger_start_auth',
+    {
+      description:
+        'Start the Kroger OAuth login flow. Returns the authorization URL for the user to open in their browser. ' +
+        'Call this when the user needs to authenticate with Kroger before using cart or profile features. ' +
+        'After calling this tool, present the URL to the user, wait for them to confirm login is complete, ' +
+        'then retry the original operation.',
+      inputSchema: {},
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async () => {
+      try {
+        const { authUrl } = await kroger.startAuthFlow();
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text:
+                'Kroger authentication started. Please open the following URL in your browser to log in:\n\n' +
+                `${authUrl}\n\n` +
+                'After completing login, let me know and I will retry your request.',
+            },
+          ],
+        };
+      } catch (error) {
+        return handleToolError(error);
+      }
+    }
+  );
 }
+
+const AUTH_REQUIRED_PREFIX = 'AUTH_REQUIRED:';
 
 function handleToolError(error: unknown) {
   const message = error instanceof Error ? error.message : 'Unknown error';
-  if (message.startsWith('AUTH_REQUIRED:')) {
-    // Auto-auth flow was started - return helpful message, not an error
+  if (message.startsWith(AUTH_REQUIRED_PREFIX)) {
+    // Auth flow was started — extract URL and return it to the agent
+    const authUrl = message.slice(AUTH_REQUIRED_PREFIX.length).trim();
+    const urlLine = authUrl ? `\n\nOpen this URL in your browser to log in:\n${authUrl}\n` : '';
     return {
       content: [
         {
           type: 'text' as const,
           text:
-            'Opening browser for Kroger login...\n\n' +
-            'Please complete the login in your browser, then try your request again.',
+            'Kroger authentication is required.' +
+            urlLine +
+            '\nAfter completing login, please try your request again.',
         },
       ],
     };

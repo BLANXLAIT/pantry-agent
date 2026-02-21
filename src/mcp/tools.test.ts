@@ -33,6 +33,7 @@ describe('MCP Tools', () => {
       expect(toolNames).toContain('get_store');
       expect(toolNames).toContain('add_to_cart');
       expect(toolNames).toContain('get_profile');
+      expect(toolNames).toContain('check_auth_status');
     });
 
     it('should have proper annotations for search_products', async () => {
@@ -62,7 +63,15 @@ describe('MCP Tools', () => {
           upc: '0001111041700',
           description: 'Kroger 2% Milk',
           brand: 'Kroger',
-          items: [{ price: { regular: 3.99 }, inventory: { stockLevel: 'HIGH' } }],
+          categories: ['Dairy', 'Milk'],
+          items: [
+            {
+              size: '1 gal',
+              price: { regular: 3.99 },
+              inventory: { stockLevel: 'HIGH' },
+              fulfillment: { curbside: true, delivery: true, inStore: true, shipToHome: false },
+            },
+          ],
           aisleLocations: [{ description: 'Dairy' }],
         },
         {
@@ -103,6 +112,14 @@ describe('MCP Tools', () => {
       expect(parsed.products[0].inStock).toBe(true);
       expect(parsed.products[0].stockLevel).toBe('HIGH');
       expect(parsed.products[0].aisle).toBe('Dairy');
+      expect(parsed.products[0].size).toBe('1 gal');
+      expect(parsed.products[0].categories).toEqual(['Dairy', 'Milk']);
+      expect(parsed.products[0].fulfillment).toEqual({
+        curbside: true,
+        delivery: true,
+        inStore: true,
+        shipToHome: false,
+      });
       expect(parsed.products[1].inStock).toBe(true);
       expect(parsed.products[1].stockLevel).toBe('LOW');
     });
@@ -255,6 +272,7 @@ describe('MCP Tools', () => {
       });
 
       expect(result.content[0].text).toContain('No products found');
+      expect(result.content[0].text).toContain('broader search term');
     });
 
     it('should use custom limit when provided', async () => {
@@ -489,6 +507,46 @@ describe('MCP Tools', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Error: Server unavailable');
+    });
+  });
+
+  describe('check_auth_status', () => {
+    it('should register the tool with read-only hints', async () => {
+      const result = await client.listTools();
+      const tool = result.tools.find((t) => t.name === 'check_auth_status');
+
+      expect(tool).toBeDefined();
+      expect(tool?.annotations?.readOnlyHint).toBe(true);
+      expect(tool?.annotations?.destructiveHint).toBe(false);
+    });
+
+    it('should return authenticated true when user is logged in', async () => {
+      mockKroger.isUserAuthenticated.mockResolvedValueOnce(true);
+
+      const result = await callTool({ name: 'check_auth_status', arguments: {} });
+
+      expect(mockKroger.isUserAuthenticated).toHaveBeenCalled();
+      expect(result.isError).not.toBe(true);
+      expect(result.content[0].text).toContain('authenticated');
+      expect(result.content[0].text).not.toContain('kroger_start_auth');
+    });
+
+    it('should return authenticated false with login guidance when not logged in', async () => {
+      mockKroger.isUserAuthenticated.mockResolvedValueOnce(false);
+
+      const result = await callTool({ name: 'check_auth_status', arguments: {} });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content[0].text).toContain('kroger_start_auth');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockKroger.isUserAuthenticated.mockRejectedValueOnce(new Error('Token read error'));
+
+      const result = await callTool({ name: 'check_auth_status', arguments: {} });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Error: Token read error');
     });
   });
 

@@ -27,6 +27,7 @@ export class AuthService {
   private appToken: { accessToken: string; expiresAt: number } | null = null;
   private authServer: Server | null = null;
   private authInProgress = false;
+  private currentAuthUrl: string | null = null;
 
   constructor(private readonly client: KrogerClient) {}
 
@@ -173,16 +174,19 @@ export class AuthService {
   }
 
   /**
-   * Start the OAuth flow - opens browser and waits for callback
-   * Returns immediately after opening browser
+   * Start the OAuth flow - opens browser and waits for callback.
+   * Returns the authorization URL so agents can present it to users.
+   * If auth is already in progress, returns the existing URL immediately.
    */
-  async startAuthFlow(scope: string): Promise<void> {
+  async startAuthFlow(scope: string): Promise<{ authUrl: string }> {
     if (this.authInProgress) {
-      return; // Already in progress
+      // Re-generate the URL if somehow currentAuthUrl was cleared
+      return { authUrl: this.currentAuthUrl ?? this.client.getAuthorizationUrl(REDIRECT_URI, scope) };
     }
 
     this.authInProgress = true;
     const authUrl = this.client.getAuthorizationUrl(REDIRECT_URI, scope);
+    this.currentAuthUrl = authUrl;
 
     // Create callback server
     this.authServer = createServer(async (req, res) => {
@@ -239,6 +243,8 @@ export class AuthService {
     setTimeout(() => {
       this.cleanupAuthServer();
     }, AUTH_TIMEOUT_MS);
+
+    return { authUrl };
   }
 
   /**
@@ -250,6 +256,7 @@ export class AuthService {
       this.authServer = null;
     }
     this.authInProgress = false;
+    this.currentAuthUrl = null;
   }
 
   /**

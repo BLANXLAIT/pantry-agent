@@ -156,10 +156,11 @@ export class KrogerService {
   }
 
   /**
-   * Start OAuth flow - opens browser for user login
+   * Start OAuth flow - opens browser for user login.
+   * Returns the authorization URL so agents can present it to users.
    */
-  async startAuthFlow(): Promise<void> {
-    await this.auth.startAuthFlow(SCOPE_USER);
+  async startAuthFlow(): Promise<{ authUrl: string }> {
+    return this.auth.startAuthFlow(SCOPE_USER);
   }
 
   /**
@@ -169,10 +170,9 @@ export class KrogerService {
   async addToCart(options: AddToCartOptions): Promise<void> {
     const token = await this.auth.getUserToken();
     if (!token) {
-      await this.startAuthFlow();
+      const { authUrl } = await this.startAuthFlow();
       throw new Error(
-        'AUTH_REQUIRED: A browser window has been opened for Kroger login. ' +
-          'Please complete the login, then try this request again.'
+        `AUTH_REQUIRED: ${authUrl}`
       );
     }
 
@@ -186,10 +186,9 @@ export class KrogerService {
   async getProfile(): Promise<Profile> {
     const token = await this.auth.getUserToken();
     if (!token) {
-      await this.startAuthFlow();
+      const { authUrl } = await this.startAuthFlow();
       throw new Error(
-        'AUTH_REQUIRED: A browser window has been opened for Kroger login. ' +
-          'Please complete the login, then try this request again.'
+        `AUTH_REQUIRED: ${authUrl}`
       );
     }
 

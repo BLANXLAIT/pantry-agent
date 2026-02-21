@@ -417,9 +417,9 @@ describe('MCP Tools', () => {
       expect(result.content[0].text).toContain('Successfully added 3 item(s)');
     });
 
-    it('should return auth prompt when not authenticated', async () => {
+    it('should return auth URL when not authenticated', async () => {
       mockKroger.addToCart.mockRejectedValueOnce(
-        new Error('AUTH_REQUIRED: A browser window has been opened for Kroger login.')
+        new Error('AUTH_REQUIRED: https://api.kroger.com/v1/connect/oauth2/authorize?client_id=test')
       );
 
       const result = await callTool({
@@ -428,7 +428,8 @@ describe('MCP Tools', () => {
       });
 
       expect(result.isError).not.toBe(true);
-      expect(result.content[0].text).toContain('Opening browser');
+      expect(result.content[0].text).toContain('authentication is required');
+      expect(result.content[0].text).toContain('https://api.kroger.com');
       expect(result.content[0].text).toContain('try your request again');
     });
   });
@@ -446,15 +447,48 @@ describe('MCP Tools', () => {
       expect(parsed.id).toBe('user-123-abc');
     });
 
-    it('should return auth prompt when not authenticated', async () => {
+    it('should return auth URL when not authenticated', async () => {
       mockKroger.getProfile.mockRejectedValueOnce(
-        new Error('AUTH_REQUIRED: A browser window has been opened for Kroger login.')
+        new Error('AUTH_REQUIRED: https://api.kroger.com/v1/connect/oauth2/authorize?client_id=test')
       );
 
       const result = await callTool({ name: 'get_profile', arguments: {} });
 
       expect(result.isError).not.toBe(true);
-      expect(result.content[0].text).toContain('Opening browser');
+      expect(result.content[0].text).toContain('authentication is required');
+      expect(result.content[0].text).toContain('https://api.kroger.com');
+    });
+  });
+
+  describe('kroger_start_auth', () => {
+    it('should register the tool', async () => {
+      const result = await client.listTools();
+      const authTool = result.tools.find((t) => t.name === 'kroger_start_auth');
+
+      expect(authTool).toBeDefined();
+      expect(authTool?.annotations?.readOnlyHint).toBe(false);
+      expect(authTool?.annotations?.idempotentHint).toBe(true);
+    });
+
+    it('should return the authorization URL', async () => {
+      const authUrl = 'https://api.kroger.com/v1/connect/oauth2/authorize?client_id=test&scope=cart.basic%3Awrite+profile.compact';
+      mockKroger.startAuthFlow.mockResolvedValueOnce({ authUrl });
+
+      const result = await callTool({ name: 'kroger_start_auth', arguments: {} });
+
+      expect(mockKroger.startAuthFlow).toHaveBeenCalled();
+      expect(result.isError).not.toBe(true);
+      expect(result.content[0].text).toContain(authUrl);
+      expect(result.content[0].text).toContain('browser');
+    });
+
+    it('should handle errors from startAuthFlow', async () => {
+      mockKroger.startAuthFlow.mockRejectedValueOnce(new Error('Server unavailable'));
+
+      const result = await callTool({ name: 'kroger_start_auth', arguments: {} });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Error: Server unavailable');
     });
   });
 

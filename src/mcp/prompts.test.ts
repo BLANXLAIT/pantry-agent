@@ -58,6 +58,7 @@ describe('MCP Prompts', () => {
       expect(text).toContain('find_stores');
       expect(text).toContain('search_products');
       expect(text).toContain('add_to_cart');
+      expect(text).toContain('kroger_start_auth');
       expect(text).not.toContain('shopping at');
     });
 
@@ -105,6 +106,48 @@ describe('MCP Prompts', () => {
       await expect(
         client.getPrompt({ name: 'unknown-prompt' })
       ).rejects.toThrow();
+    });
+  });
+
+  describe('kroger-oauth prompt', () => {
+    it('should register kroger-oauth prompt', async () => {
+      const result = await client.listPrompts();
+      const oauthPrompt = result.prompts.find((p) => p.name === 'kroger-oauth');
+
+      expect(oauthPrompt).toBeDefined();
+      expect(oauthPrompt?.description).toContain('OAuth');
+    });
+
+    it('should include kroger_start_auth tool guidance', async () => {
+      const result = await client.getPrompt({
+        name: 'kroger-oauth',
+        arguments: {},
+      });
+
+      const text = (result.messages[0].content as any).text;
+      expect(text).toContain('kroger_start_auth');
+      expect(text).toContain('browser');
+      expect(text).toContain('confirm');
+    });
+
+    it('should include returnAction in prompt when provided', async () => {
+      const result = await client.getPrompt({
+        name: 'kroger-oauth',
+        arguments: { returnAction: 'add milk to cart' },
+      });
+
+      const text = (result.messages[0].content as any).text;
+      expect(text).toContain('add milk to cart');
+    });
+
+    it('should use generic retry message when returnAction is not provided', async () => {
+      const result = await client.getPrompt({
+        name: 'kroger-oauth',
+        arguments: {},
+      });
+
+      const text = (result.messages[0].content as any).text;
+      expect(text).toContain('retry the original request');
     });
   });
 });

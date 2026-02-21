@@ -23,6 +23,7 @@ export function createMockKrogerService() {
     addToCart: vi.fn(),
     getProfile: vi.fn(),
     isUserAuthenticated: vi.fn(),
+    startAuthFlow: vi.fn(),
     getAuthService: vi.fn(),
     getUserScope: vi.fn(),
   };

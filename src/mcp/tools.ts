@@ -55,6 +55,11 @@ const AddToCartInput = {
   items: z.array(CartItemInput).min(1, 'At least one item is required').describe('Items to add to cart'),
 };
 
+const PreviewCartInput = {
+  items: z.array(CartItemInput).min(1, 'At least one item is required').describe('Items to preview'),
+  locationId: z.string().min(1).describe('Store location ID for pricing and stock info'),
+};
+
 // Output schemas
 const ProductSummary = z.object({
   productId: z.string(),
@@ -66,6 +71,14 @@ const ProductSummary = z.object({
   stockLevel: z.string().optional(),
   availability: z.enum(['in_stock', 'out_of_stock', 'unknown']).optional(),
   aisle: z.string().optional(),
+  size: z.string().optional(),
+  categories: z.array(z.string()).optional(),
+  fulfillment: z.object({
+    curbside: z.boolean().optional(),
+    delivery: z.boolean().optional(),
+    inStore: z.boolean().optional(),
+    shipToHome: z.boolean().optional(),
+  }).optional(),
 });
 
 const SearchProductsOutput = {
@@ -225,6 +238,9 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
             stockLevel,
             availability,
             aisle: p.aisleLocations?.[0]?.description,
+            size: selectedItem?.size,
+            categories: p.categories,
+            fulfillment: selectedItem?.fulfillment,
           };
         });
 
@@ -441,6 +457,138 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
     }
   );
 
+  // Register check_auth_status tool
+  server.registerTool(
+    'check_auth_status',
+    {
+      description:
+        'Check whether the user is currently authenticated with Kroger without triggering an OAuth flow. ' +
+        'Use this before attempting cart or profile operations to decide whether to call kroger_start_auth first.',
+      inputSchema: {},
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async () => {
+      try {
+        const authenticated = await kroger.isUserAuthenticated();
+        const result = {
+          authenticated,
+          message: authenticated
+            ? 'User is authenticated with Kroger.'
+            : 'User is not authenticated. Call kroger_start_auth to begin the login flow.',
+        };
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result,
+        };
+      } catch (error) {
+        return handleToolError(error);
+      }
+    }
+  );
+
+  // Register preview_cart tool
+  server.registerTool(
+    'preview_cart',
+    {
+      description:
+        'Preview items before adding to cart. Looks up current pricing, stock, and fulfillment options for each item. ' +
+        'Use this to validate item availability and show an estimated total before calling add_to_cart. ' +
+        'Does not require authentication.',
+      inputSchema: PreviewCartInput,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async ({ items, locationId }) => {
+      try {
+        type ResolvedItem = {
+          upc: string;
+          quantity: number;
+          modality?: 'PICKUP' | 'DELIVERY';
+          name?: string;
+          brand?: string;
+          price?: number;
+          lineTotal?: number;
+          inStock?: boolean;
+          stockLevel?: string;
+          availability?: 'in_stock' | 'out_of_stock' | 'unknown';
+          fulfillment?: { curbside: boolean; delivery: boolean; inStore: boolean; shipToHome: boolean };
+          error?: string;
+        };
+
+        const resolved: ResolvedItem[] = await Promise.all(
+          items.map(async (item): Promise<ResolvedItem> => {
+            try {
+              const product = await kroger.getProduct(item.upc, locationId);
+              const selectedItem = pickPreferredItem(product);
+              const stockLevel = selectedItem?.inventory?.stockLevel;
+              const price = selectedItem?.price?.regular;
+              return {
+                upc: item.upc,
+                quantity: item.quantity,
+                modality: item.modality,
+                name: product.description,
+                brand: product.brand,
+                price,
+                lineTotal:
+                  price !== undefined
+                    ? Math.round(price * item.quantity * 100) / 100
+                    : undefined,
+                inStock: stockLevelToInStock(stockLevel),
+                stockLevel,
+                availability: stockLevelToAvailability(stockLevel),
+                fulfillment: selectedItem?.fulfillment,
+              };
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : 'Not found';
+              return { upc: item.upc, quantity: item.quantity, error: msg };
+            }
+          })
+        );
+
+        const estimatedTotal = resolved.reduce((sum, item) => {
+          if (item.error !== undefined || item.lineTotal === undefined) return sum;
+          return sum + item.lineTotal;
+        }, 0);
+
+        const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
+
+        const warnings: string[] = [];
+        for (const item of resolved) {
+          if (item.error !== undefined) {
+            warnings.push(`UPC ${item.upc}: ${item.error}`);
+          } else if (item.availability === 'out_of_stock') {
+            warnings.push(`${item.name ?? item.upc} is currently out of stock`);
+          } else if (item.availability === 'unknown') {
+            warnings.push(`${item.name ?? item.upc} has unknown stock status`);
+          }
+        }
+
+        const result = {
+          items: resolved,
+          estimatedTotal: Math.round(estimatedTotal * 100) / 100,
+          itemCount,
+          warnings,
+        };
+
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result,
+        };
+      } catch (error) {
+        return handleToolError(error);
+      }
+    }
+  );
+
   // Register kroger_start_auth tool
   server.registerTool(
     'kroger_start_auth',
@@ -480,19 +628,26 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
 }
 
 const AUTH_REQUIRED_PREFIX = 'AUTH_REQUIRED:';
+const AUTH_REQUIRED_EXACT = 'AUTH_REQUIRED';
 
 function handleToolError(error: unknown) {
   const message = error instanceof Error ? error.message : 'Unknown error';
-  if (message.startsWith(AUTH_REQUIRED_PREFIX)) {
-    // Auth flow was started — extract URL and return it to the agent
-    const authUrl = message.slice(AUTH_REQUIRED_PREFIX.length).trim();
+  if (message.startsWith(AUTH_REQUIRED_PREFIX) || message === AUTH_REQUIRED_EXACT) {
+    // Auth is required — extract URL if embedded (legacy), otherwise guide agent to kroger_start_auth
+    const authUrl = message.startsWith(AUTH_REQUIRED_PREFIX)
+      ? message.slice(AUTH_REQUIRED_PREFIX.length).trim()
+      : '';
     const urlLine = authUrl ? `\n\nOpen this URL in your browser to log in:\n${authUrl}\n` : '';
+    const startAuthNote = authUrl
+      ? ''
+      : '\n\nCall the kroger_start_auth tool to get the authorization URL and begin the login flow.';
     return {
       content: [
         {
           type: 'text' as const,
           text:
             'Kroger authentication is required.' +
+            startAuthNote +
             urlLine +
             '\nAfter completing login, please try your request again.',
         },

@@ -165,15 +165,13 @@ export class KrogerService {
 
   /**
    * Add items to user's cart
-   * Requires user authentication - auto-starts auth flow if not authenticated
+   * Requires user authentication. Throws AUTH_REQUIRED if not authenticated —
+   * call startAuthFlow (or the kroger_start_auth MCP tool) to begin the login flow.
    */
   async addToCart(options: AddToCartOptions): Promise<void> {
     const token = await this.auth.getUserToken();
     if (!token) {
-      const { authUrl } = await this.startAuthFlow();
-      throw new Error(
-        `AUTH_REQUIRED: ${authUrl}`
-      );
+      throw new Error('AUTH_REQUIRED');
     }
 
     await this.cart.addItems(options.items, token);
@@ -181,15 +179,13 @@ export class KrogerService {
 
   /**
    * Get user profile
-   * Requires user authentication - auto-starts auth flow if not authenticated
+   * Requires user authentication. Throws AUTH_REQUIRED if not authenticated —
+   * call startAuthFlow (or the kroger_start_auth MCP tool) to begin the login flow.
    */
   async getProfile(): Promise<Profile> {
     const token = await this.auth.getUserToken();
     if (!token) {
-      const { authUrl } = await this.startAuthFlow();
-      throw new Error(
-        `AUTH_REQUIRED: ${authUrl}`
-      );
+      throw new Error('AUTH_REQUIRED');
     }
 
     return this.identity.getProfile(token);

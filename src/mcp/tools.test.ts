@@ -33,6 +33,8 @@ describe('MCP Tools', () => {
       expect(toolNames).toContain('get_store');
       expect(toolNames).toContain('add_to_cart');
       expect(toolNames).toContain('get_profile');
+      expect(toolNames).toContain('check_auth_status');
+      expect(toolNames).toContain('preview_cart');
     });
 
     it('should have proper annotations for search_products', async () => {
@@ -417,9 +419,9 @@ describe('MCP Tools', () => {
       expect(result.content[0].text).toContain('Successfully added 3 item(s)');
     });
 
-    it('should return auth URL when not authenticated', async () => {
+    it('should return auth guidance when not authenticated', async () => {
       mockKroger.addToCart.mockRejectedValueOnce(
-        new Error('AUTH_REQUIRED: https://api.kroger.com/v1/connect/oauth2/authorize?client_id=test')
+        new Error('AUTH_REQUIRED')
       );
 
       const result = await callTool({
@@ -429,7 +431,7 @@ describe('MCP Tools', () => {
 
       expect(result.isError).not.toBe(true);
       expect(result.content[0].text).toContain('authentication is required');
-      expect(result.content[0].text).toContain('https://api.kroger.com');
+      expect(result.content[0].text).toContain('kroger_start_auth');
       expect(result.content[0].text).toContain('try your request again');
     });
   });
@@ -447,16 +449,158 @@ describe('MCP Tools', () => {
       expect(parsed.id).toBe('user-123-abc');
     });
 
-    it('should return auth URL when not authenticated', async () => {
+    it('should return auth guidance when not authenticated', async () => {
       mockKroger.getProfile.mockRejectedValueOnce(
-        new Error('AUTH_REQUIRED: https://api.kroger.com/v1/connect/oauth2/authorize?client_id=test')
+        new Error('AUTH_REQUIRED')
       );
 
       const result = await callTool({ name: 'get_profile', arguments: {} });
 
       expect(result.isError).not.toBe(true);
       expect(result.content[0].text).toContain('authentication is required');
-      expect(result.content[0].text).toContain('https://api.kroger.com');
+      expect(result.content[0].text).toContain('kroger_start_auth');
+    });
+  });
+
+  describe('check_auth_status', () => {
+    it('should return authenticated when user is logged in', async () => {
+      mockKroger.isUserAuthenticated.mockResolvedValueOnce(true);
+
+      const result = await callTool({ name: 'check_auth_status', arguments: {} });
+
+      expect(mockKroger.isUserAuthenticated).toHaveBeenCalled();
+      expect(result.isError).not.toBe(true);
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.authenticated).toBe(true);
+      expect(parsed.message).toContain('authenticated');
+    });
+
+    it('should return not authenticated and guide to kroger_start_auth', async () => {
+      mockKroger.isUserAuthenticated.mockResolvedValueOnce(false);
+
+      const result = await callTool({ name: 'check_auth_status', arguments: {} });
+
+      expect(result.isError).not.toBe(true);
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.authenticated).toBe(false);
+      expect(parsed.message).toContain('kroger_start_auth');
+    });
+  });
+
+  describe('preview_cart', () => {
+    it('should preview items with pricing and availability', async () => {
+      const mockProduct = {
+        productId: '001',
+        upc: '0001111041700',
+        description: 'Kroger 2% Milk',
+        brand: 'Kroger',
+        items: [
+          {
+            size: '1 gal',
+            price: { regular: 3.99 },
+            inventory: { stockLevel: 'HIGH' },
+            fulfillment: { curbside: true, delivery: true, inStore: true, shipToHome: false },
+          },
+        ],
+      };
+
+      mockKroger.getProduct.mockResolvedValueOnce(mockProduct);
+
+      const result = await callTool({
+        name: 'preview_cart',
+        arguments: {
+          items: [{ upc: '0001111041700', quantity: 2 }],
+          locationId: '01400943',
+        },
+      });
+
+      expect(mockKroger.getProduct).toHaveBeenCalledWith('0001111041700', '01400943');
+      expect(result.isError).not.toBe(true);
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.itemCount).toBe(2);
+      expect(parsed.estimatedTotal).toBe(7.98);
+      expect(parsed.items).toHaveLength(1);
+      expect(parsed.items[0].name).toBe('Kroger 2% Milk');
+      expect(parsed.items[0].price).toBe(3.99);
+      expect(parsed.items[0].lineTotal).toBe(7.98);
+      expect(parsed.items[0].availability).toBe('in_stock');
+      expect(parsed.items[0].fulfillment.curbside).toBe(true);
+      expect(parsed.warnings).toHaveLength(0);
+    });
+
+    it('should include warnings for out-of-stock items', async () => {
+      const mockProduct = {
+        productId: '002',
+        upc: '0001111041701',
+        description: 'Kroger Cola',
+        brand: 'Kroger',
+        items: [{ price: { regular: 1.99 }, inventory: { stockLevel: 'TEMPORARILY_OUT_OF_STOCK' } }],
+      };
+
+      mockKroger.getProduct.mockResolvedValueOnce(mockProduct);
+
+      const result = await callTool({
+        name: 'preview_cart',
+        arguments: {
+          items: [{ upc: '0001111041701', quantity: 1 }],
+          locationId: '01400943',
+        },
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.items[0].availability).toBe('out_of_stock');
+      expect(parsed.warnings).toHaveLength(1);
+      expect(parsed.warnings[0]).toContain('out of stock');
+    });
+
+    it('should include errors for items that cannot be found', async () => {
+      mockKroger.getProduct.mockRejectedValueOnce(new Error('Product not found: 9999999999999'));
+
+      const result = await callTool({
+        name: 'preview_cart',
+        arguments: {
+          items: [{ upc: '9999999999999', quantity: 1 }],
+          locationId: '01400943',
+        },
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.items[0].error).toContain('not found');
+      expect(parsed.warnings).toHaveLength(1);
+      expect(parsed.estimatedTotal).toBe(0);
+    });
+
+    it('should handle multiple items and sum estimated total', async () => {
+      mockKroger.getProduct
+        .mockResolvedValueOnce({
+          productId: '001',
+          upc: '0001111041700',
+          description: 'Milk',
+          items: [{ price: { regular: 3.99 }, inventory: { stockLevel: 'HIGH' } }],
+        })
+        .mockResolvedValueOnce({
+          productId: '002',
+          upc: '0001111041701',
+          description: 'Eggs',
+          items: [{ price: { regular: 2.49 }, inventory: { stockLevel: 'LOW' } }],
+        });
+
+      const result = await callTool({
+        name: 'preview_cart',
+        arguments: {
+          items: [
+            { upc: '0001111041700', quantity: 1 },
+            { upc: '0001111041701', quantity: 2 },
+          ],
+          locationId: '01400943',
+        },
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.itemCount).toBe(3);
+      expect(parsed.estimatedTotal).toBe(8.97); // 3.99 + 2*2.49
+      expect(parsed.warnings).toHaveLength(0);
     });
   });
 

@@ -61,10 +61,20 @@ const ProductSummary = z.object({
   upc: z.string().optional(),
   name: z.string().optional(),
   brand: z.string().optional(),
+  size: z.string().optional(),
+  categories: z.array(z.string()).optional(),
   price: z.number().optional(),
   inStock: z.boolean().optional(),
   stockLevel: z.string().optional(),
   availability: z.enum(['in_stock', 'out_of_stock', 'unknown']).optional(),
+  fulfillment: z
+    .object({
+      curbside: z.boolean().optional(),
+      delivery: z.boolean().optional(),
+      inStore: z.boolean().optional(),
+      shipToHome: z.boolean().optional(),
+    })
+    .optional(),
   aisle: z.string().optional(),
 });
 
@@ -169,7 +179,11 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
   server.registerTool(
     'search_products',
     {
-      description: 'Search for products at a Kroger-owned store by name, brand, or description. Works with Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter, Food 4 Less, Fry\'s, Smith\'s, and other Kroger banners.',
+      description:
+        'Search for products at a Kroger-owned store by name, brand, or description. Works with Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter, Food 4 Less, Fry\'s, Smith\'s, and other Kroger banners. ' +
+        'Results include size, categories, and fulfillment availability (PICKUP/DELIVERY) to help filter by user preferences. ' +
+        'Use availabilityMode="in_stock_only" to show only items available for purchase. ' +
+        'If no results are found, try broadening the search term or setting availabilityMode="all".',
       inputSchema: SearchProductsInput,
       // outputSchema omitted: empty results and errors return plain text
       annotations: {
@@ -207,7 +221,12 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
 
         if (merged.length === 0) {
           return {
-            content: [{ type: 'text' as const, text: `No products found for "${term}" at this store.` }],
+            content: [
+              {
+                type: 'text' as const,
+                text: `No products found for "${term}" at this store. Try a broader search term or set availabilityMode to "all" to include out-of-stock items.`,
+              },
+            ],
           };
         }
 
@@ -220,10 +239,13 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
             upc: p.upc,
             name: p.description,
             brand: p.brand,
+            size: selectedItem?.size,
+            categories: p.categories,
             price: selectedItem?.price?.regular,
             inStock: stockLevelToInStock(stockLevel),
             stockLevel,
             availability,
+            fulfillment: selectedItem?.fulfillment,
             aisle: p.aisleLocations?.[0]?.description,
           };
         });
@@ -384,7 +406,10 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
   server.registerTool(
     'add_to_cart',
     {
-      description: "Add items to the user's Kroger cart. Requires user authentication. Note: the cart is account-level, not store-specific — items go to the user's single cart regardless of which store was searched.",
+      description:
+        "Add items to the user's Kroger cart. Requires user authentication — call kroger_start_auth if you receive an AUTH_REQUIRED error, present the URL to the user, and retry once they confirm login. " +
+        "Note: the cart is account-level, not store-specific — items go to the user's single cart regardless of which store was searched. " +
+        "Check product fulfillment fields before adding to confirm PICKUP or DELIVERY availability.",
       inputSchema: AddToCartInput,
       // outputSchema omitted: auth errors return plain text
       annotations: {
@@ -471,6 +496,41 @@ export function registerTools(server: McpServer, kroger: KrogerService): void {
                 'After completing login, let me know and I will retry your request.',
             },
           ],
+        };
+      } catch (error) {
+        return handleToolError(error);
+      }
+    }
+  );
+
+  // Register check_auth_status tool
+  server.registerTool(
+    'check_auth_status',
+    {
+      description:
+        'Check whether the user is currently authenticated with Kroger. ' +
+        'Use this before calling cart or profile tools to decide whether to call kroger_start_auth first. ' +
+        'Returns authenticated: true/false and a human-readable status message.',
+      inputSchema: {},
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async () => {
+      try {
+        const authenticated = await kroger.isUserAuthenticated();
+        const result = {
+          authenticated,
+          message: authenticated
+            ? 'User is authenticated with Kroger. Cart and profile tools are available.'
+            : 'User is not authenticated. Call kroger_start_auth to begin the login flow before using cart or profile tools.',
+        };
+        return {
+          content: [{ type: 'text' as const, text: result.message }],
+          structuredContent: result,
         };
       } catch (error) {
         return handleToolError(error);
